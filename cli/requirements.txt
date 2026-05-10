@@ -1,0 +1,14 @@
+click
+transformers
+opencv-python
+sudachipy
+sudachidict_core
+Pillow
+torch
+requests
+accelerate
+tiktoken
+verovio
+torchvision
+ultralytics
+craft-text-detector

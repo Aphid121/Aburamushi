@@ -30,9 +30,9 @@ class MangaOCRExtractor:
             payload = {
                 "max_context_length": 16384,
                 "max_length": 1024,
-                "temperature": 0.1,
+                "temperature": 0.0,
                 "images": [encoded_string],
-                "prompt": "\n(Attached Image 1)\n"
+                "prompt": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n<|image_1|>\nExtract the Japanese text from this image. EXPLICITLY IGNORE furigana (ruby characters). Output ONLY the text as written verbatim, do not add quotation marks or any other formatting.<|im_end|>\n<|im_start|>assistant\n"
             }
             
             response = requests.post("http://localhost:5001/api/v1/generate", json=payload)
@@ -65,6 +65,10 @@ class MangaOCRExtractor:
                         text = res
                 else:
                     text = res
+                    
+            # Clean up <think> tags from Qwen models
+            if "<think>" in text and "</think>" in text:
+                text = text.split("</think>")[-1].strip()
                 
             return text.replace(' ', '').replace('\n', '').replace('　', '')
         except Exception as e:
@@ -160,8 +164,11 @@ def process_manga(input_path, output):
     manga_data = {"pages": []}
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        click.echo(f"[*] TEMP_DIR: {temp_dir}")
         images = extract_archive(input_path, temp_dir)
         click.echo(f"[*] Found {len(images)} images to process.")
+        
+        json_path = Path(temp_dir) / "aburamushi.json"
         
         for img_path in images:
             click.echo(f"[*] Processing {img_path.name}...")
@@ -222,7 +229,7 @@ def process_manga(input_path, output):
                         
                 if not raw_boxes: continue
                 
-                # Furigana detection
+                # Detect and filter furigana (ruby characters) based on box size and position
                 max_w = max(b[2] for b in raw_boxes)
                 max_h = max(b[3] for b in raw_boxes)
                 main_boxes = [b for b in raw_boxes if b[2] > max_w * 0.5 or b[3] > max_h * 0.5]
@@ -249,7 +256,7 @@ def process_manga(input_path, output):
                 raw_boxes = filtered_raw_boxes
                 refined_lines = []
                 
-                # Group raw_boxes into columns based on CTD lines
+                # Group raw bounding boxes into columns using comic-text-detector line polygons
                 column_boxes = []
                 for line_poly in blk.lines:
                     pts = np.array(line_poly, np.int32)
@@ -269,7 +276,7 @@ def process_manga(input_path, output):
                         max_y = max(b[1]+b[3] for b in line_raw_boxes)
                         column_boxes.append([min_x, min_y, max_x - min_x, max_y - min_y])
                         
-                # Merge overlapping column boxes
+                # Merge column boxes that overlap on the primary text axis
                 def boxes_overlap(b1, b2):
                     x1, y1, w1, h1 = b1
                     x2, y2, w2, h2 = b2
@@ -325,7 +332,7 @@ def process_manga(input_path, output):
                     max_x = min_x + cw
                     max_y = min_y + ch
                     
-                    # Raycast
+                    # Perform raycasting to refine column boundaries based on the processed mask
                     char_size = (max_x - min_x) if is_vertical else (max_y - min_y)
                     if char_size <= 0: char_size = 20
                     search_dist = int(char_size * 2.0)
@@ -412,7 +419,7 @@ def process_manga(input_path, output):
                         
                         # For brackets and long vowel marks in vertical text, 
                         # they are rotated 90 degrees, so we should use their width as their height
-                        if is_vertical and char in '()（）「」『』【】ー—~～':
+                        if is_vertical and char in '()（）「」『』【】ー—~～…':
                             char_h = char_w
                     else:
                         # Fallback for whitespace or empty characters
@@ -456,7 +463,7 @@ def process_manga(input_path, output):
                             break
                             
                     # Kinsoku Shori: Punctuation should stick to the previous line
-                    if char_idx > 0 and word_text[0] in '．。、！？…?!,.ー—~～':
+                    if char_idx > 0 and word_len > 0 and word_text[0] in '．。、！？…?!,.ー—~～':
                         assigned_line = prev_assigned_line
                         
                     # Assign all characters in the word to the chosen line
@@ -543,91 +550,13 @@ def process_manga(input_path, output):
                     "lines": bubble_lines_data
                 })
                 
-            # --- SFX / Onomatopoeia Detection ---
-            _, sfx_mask = cv2.threshold(mask_img, 50, 255, cv2.THRESH_BINARY)
-            
-            # Erase the bubbles we already found
-            for blk in blk_list:
-                xmin, ymin, xmax, ymax = map(int, blk.xyxy)
-                pad = 15
-                cv2.rectangle(sfx_mask, (max(0, xmin-pad), max(0, ymin-pad)), (min(img.shape[1], xmax+pad), min(img.shape[0], ymax+pad)), 0, -1)
-                
-            # Group the remaining SFX pixels
-            kernel = np.ones((40, 40), np.uint8)
-            dilated_sfx = cv2.dilate(sfx_mask, kernel, iterations=1)
-            contours, _ = cv2.findContours(dilated_sfx, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            sfx_idx = 0
-            for cnt in contours:
-                x, y, w, h = cv2.boundingRect(cnt)
-                if w > 30 and h > 30:
-                    # Filters
-                    aspect_ratio = max(w, h) / min(w, h)
-                    roi_mask = sfx_mask[y:y+h, x:x+w]
-                    ink_pixels = cv2.countNonZero(roi_mask)
-                    box_area = w * h
-                    fill_ratio = ink_pixels / box_area if box_area > 0 else 0
-                    
-                    pad = 10
-                    x1, y1 = max(0, x - pad), max(0, y - pad)
-                    x2, y2 = min(img.shape[1], x + w + pad), min(img.shape[0], y + h + pad)
-                    
-                    sfx_crop = img[y1:y2, x1:x2]
-                    temp_path = f'/tmp/sfx_crop_{b_idx}_{sfx_idx}.jpg'
-                    cv2.imwrite(temp_path, sfx_crop)
-                    
-                    try:
-                        text = vlm_extractor.extract_text(temp_path)
-                        if not text: continue
-                        
-                        # Filter logic
-                        is_valid = True
-                        if len(text) > 8: is_valid = False
-                        elif fill_ratio > 0.4: is_valid = False
-                        elif aspect_ratio < 1.2 and fill_ratio > 0.2: is_valid = False
-                        elif all(c in '．。、！？…?!,.ー—~～' for c in text): is_valid = False
-                        
-                        # English/Latin letter filter (often catches background art like curtains)
-                        import re
-                        if re.match(r'^[a-zA-Zａ-ｚＡ-Ｚ]+$', text): is_valid = False
-                        
-                        if is_valid:
-                            # Tilted BBox for the UI
-                            rect = cv2.minAreaRect(cnt)
-                            box = cv2.boxPoints(rect)
-                            box = np.int32(box).tolist()
-                            
-                            # Tokenize the SFX
-                            # For SFX, we want the entire text to be treated as a single word and single character
-                            words_data = [{
-                                "text": text,
-                                "base_form": text,
-                                "reading": text,
-                                "part_of_speech": "感動詞", # Interjection/SFX
-                                "characters": [{"char": text, "box": [x1, y1, x2-x1, y2-y1]}]
-                            }]
-                                
-                            page_data['bubbles'].append({
-                                "id": f"sfx_{sfx_idx}",
-                                "direction": "horizontal-lr" if w > h else "vertical-rl",
-                                "box": [x1, y1, x2-x1, y2-y1],
-                                "tilted_box": box,
-                                "raw_text": text,
-                                "lines": [{"words": words_data}],
-                                "is_sfx": True
-                            })
-                            sfx_idx += 1
-                            
-                    except Exception as e:
-                        click.echo(f"    [!] Error processing SFX: {e}")
-                        
             manga_data['pages'].append(page_data)
             
-        click.echo(f"[*] Packing data into {output}...")
-        json_path = Path(temp_dir) / "aburamushi.json"
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(manga_data, f, ensure_ascii=False, indent=2)
+            # Save intermediate JSON so viewer can read while processing
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(manga_data, f, ensure_ascii=False, indent=2)
             
+        click.echo(f"[*] Packing data into {output}...")
         with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zipf:
             zipf.write(json_path, "aburamushi.json")
             for img_path in images:
