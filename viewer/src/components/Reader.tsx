@@ -1530,7 +1530,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                             onUpdateNote={handleUpdateNote}
                             onDeleteNote={handleDeleteNote}
                             isDraggingCanvas={isDragging}
-                            isDrawMode={isDrawMode}
+                            isDrawMode={isDrawMode || isMaskMode}
                           />
                         </div>
                       </div>
