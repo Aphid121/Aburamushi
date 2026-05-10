@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenTool, Eraser } from 'lucide-react';
+import { PenTool, Eraser, Scissors } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 
 interface DrawingSidebarProps {
@@ -7,6 +7,8 @@ interface DrawingSidebarProps {
   setIsDrawMode: (val: boolean) => void;
   isEraserMode: boolean;
   setIsEraserMode: (val: boolean) => void;
+  isMaskMode: boolean;
+  setIsMaskMode: (val: boolean) => void;
   activeColor: string;
   setActiveColor: (color: string) => void;
   brushSize: number;
@@ -76,6 +78,8 @@ const DrawingSidebar: React.FC<DrawingSidebarProps> = ({
   setIsDrawMode,
   isEraserMode,
   setIsEraserMode,
+  isMaskMode,
+  setIsMaskMode,
   activeColor,
   setActiveColor,
   brushSize,
@@ -89,27 +93,41 @@ const DrawingSidebar: React.FC<DrawingSidebarProps> = ({
     <div className="w-56 h-full bg-gray-900/95 backdrop-blur-md border-r border-gray-800 flex flex-col items-center py-4 gap-6 shadow-2xl pointer-events-auto overflow-y-auto custom-scrollbar">
       
       {/* Tools Section */}
-      <div className="flex gap-4 w-full px-4 justify-center">
+      <div className="flex gap-2 w-full px-4 justify-center">
         <button
           onClick={() => {
             setIsDrawMode(true);
             setIsEraserMode(false);
+            setIsMaskMode(false);
           }}
           className={`p-3 rounded-xl transition-all flex-1 flex justify-center ${isDrawMode ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
           title="Pen Tool"
         >
-          <PenTool className="w-6 h-6" />
+          <PenTool className="w-5 h-5" />
         </button>
         
         <button
           onClick={() => {
+            setIsMaskMode(true);
+            setIsDrawMode(false);
+            setIsEraserMode(false);
+          }}
+          className={`p-3 rounded-xl transition-all flex-1 flex justify-center ${isMaskMode ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
+          title="Mask Tool (Fast Eraser)"
+        >
+          <Scissors className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={() => {
             setIsEraserMode(true);
             setIsDrawMode(false);
+            setIsMaskMode(false);
           }}
           className={`p-3 rounded-xl transition-all flex-1 flex justify-center ${isEraserMode ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
-          title="Eraser Tool"
+          title="Vector Eraser (Slow)"
         >
-          <Eraser className="w-6 h-6" />
+          <Eraser className="w-5 h-5" />
         </button>
       </div>
 

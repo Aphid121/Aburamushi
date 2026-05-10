@@ -73,12 +73,13 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] = useState(false);
   const [activeNoteColor, setActiveNoteColor] = useState(NOTE_COLORS[0]);
-  const [activeBrushColor, setActiveBrushColor] = useState('#000000');
   const [stickyNotes, setStickyNotes] = useState<StickyNoteData[]>([]);
   const [isDrawingSidebarOpen, setIsDrawingSidebarOpen] = useState(false);
   const [isDrawMode, setIsDrawMode] = useState(false);
   const [isEraserMode, setIsEraserMode] = useState(false);
-  const [brushSize, setBrushSize] = useState(2);
+  const [isMaskMode, setIsMaskMode] = useState(false);
+  const [activeBrushColor, setActiveBrushColor] = useState('#ff0000');
+  const [brushSize, setBrushSize] = useState(5);
   const [brushOpacity, setBrushOpacity] = useState(1.0);
   const [brushHardness, setBrushHardness] = useState(1.0);
   const [strokes, setStrokes] = useState<any[]>([]);
@@ -631,8 +632,8 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       return;
     }
     
-    if (isDrawMode && e.button === 0) {
-      // Find which page we clicked on
+    if ((isDrawMode || isMaskMode) && e.button === 0) {
+      // Find which page we clicked on (or the closest one if we clicked outside)
       let targetPageIdx = -1;
       let imgElement = null;
       
@@ -680,11 +681,11 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       handleEraser(e);
       return;
     }
-
-    if (isDrawMode && activeStroke) {
+    if ((isDrawMode || isMaskMode) && activeStroke) {
       const imgElement = document.getElementById(`manga-img-${activeStroke.pageIdx}`);
       if (imgElement) {
         const rect = imgElement.getBoundingClientRect();
+        // Allow drawing outside the image bounds by not clamping the coordinates
         const x = (e.clientX - rect.left) / rect.width;
         const y = (e.clientY - rect.top) / rect.height;
         setActiveStroke(prev => prev ? { ...prev, points: [...prev.points, [x, y]] } : null);
@@ -722,6 +723,29 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           note_id: null,
           brush_type: 'pen',
           color: activeBrushColor,
+          size: brushSize,
+          opacity: brushOpacity,
+          hardness: brushHardness,
+          points: JSON.stringify(activeStroke.points)
+        };
+        setStrokes(prev => [...prev, newStroke]);
+        if ((window as any).electronAPI) {
+          await (window as any).electronAPI.saveStroke(newStroke);
+        }
+      }
+      setActiveStroke(null);
+      return;
+    }
+
+    if (isMaskMode && activeStroke) {
+      if (activeStroke.points.length > 1) {
+        const newStroke = {
+          id: `stroke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          manga_id: mangaId,
+          page_idx: activeStroke.pageIdx,
+          note_id: null,
+          brush_type: 'mask',
+          color: '#000000', // Color doesn't matter for mask
           size: brushSize,
           opacity: brushOpacity,
           hardness: brushHardness,
@@ -1201,9 +1225,9 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       ref={containerRef}
       className="flex flex-col h-full bg-gray-950 relative overflow-hidden select-none"
     >
-      {/* Cursor Preview */}
-      {(isDrawMode || isEraserMode) && cursorPos && (
-        <div
+      {/* Custom Cursor */}
+      {(isDrawMode || isEraserMode || isMaskMode) && cursorPos && (
+        <div 
           className="fixed pointer-events-none z-[9999] rounded-full mix-blend-difference"
           style={{
             left: cursorPos.x,
@@ -1212,7 +1236,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
             height: brushSize * scale,
             transform: 'translate(-50%, -50%)',
             border: `1px ${isEraserMode ? 'dashed' : 'solid'} white`,
-            backgroundColor: isEraserMode ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
+            backgroundColor: isMaskMode ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
           }}
         />
       )}
@@ -1277,6 +1301,8 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           setIsDrawMode={setIsDrawMode}
           isEraserMode={isEraserMode}
           setIsEraserMode={setIsEraserMode}
+          isMaskMode={isMaskMode}
+          setIsMaskMode={setIsMaskMode}
           activeColor={activeBrushColor}
           setActiveColor={setActiveBrushColor}
           brushSize={brushSize}
@@ -1291,7 +1317,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       {/* Main Image Area */}
       <div 
         ref={containerRef}
-        className="flex-1 relative cursor-crosshair overflow-hidden bg-gray-900 select-none z-0"
+        className={`flex-1 relative overflow-hidden bg-gray-900 select-none z-0 ${(isDrawMode || isEraserMode || isMaskMode) ? 'cursor-none' : 'cursor-crosshair'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1510,6 +1536,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
 
         <GlobalDrawingCanvas
           isDrawMode={isDrawMode}
+          isMaskMode={isMaskMode}
           scale={scale}
           pan={pan}
           strokes={strokes}
@@ -1518,6 +1545,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           displayImages={displayImages}
           brushSize={brushSize}
           brushOpacity={brushOpacity}
+          brushHardness={brushHardness}
         />
       </div>
 

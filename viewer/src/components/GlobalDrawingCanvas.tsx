@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 
 interface GlobalDrawingCanvasProps {
   isDrawMode: boolean;
+  isMaskMode: boolean;
   scale: number;
   pan: { x: number, y: number };
   strokes: any[];
@@ -10,10 +11,12 @@ interface GlobalDrawingCanvasProps {
   displayImages: any[];
   brushSize: number;
   brushOpacity: number;
+  brushHardness: number;
 }
 
 const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
   isDrawMode,
+  isMaskMode,
   scale,
   pan,
   strokes,
@@ -21,7 +24,8 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
   activeNoteColor,
   displayImages,
   brushSize,
-  brushOpacity
+  brushOpacity,
+  brushHardness
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bufferCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,38 +45,54 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // We need to draw strokes for all visible pages
-    // Instead of relying on displayImages (which is empty in infinite modes),
-    // we find all rendered manga images in the DOM.
-    const images = document.querySelectorAll('img[id^="manga-img-"]');
-    
-    images.forEach(imgElement => {
-      const pageIdx = parseInt(imgElement.id.replace('manga-img-', ''), 10);
-      const pageStrokes = strokes.filter(s => s.page_idx === pageIdx && s.note_id === null);
+    const canvasRect = canvas.getBoundingClientRect();
+    const rectCache = new Map();
+
+    strokes.forEach(stroke => {
+      if (stroke.note_id !== null) return;
       
-      const imgRect = imgElement.getBoundingClientRect();
-      const canvasRect = canvas.getBoundingClientRect();
+      let imgRect = rectCache.get(stroke.page_idx);
+      if (imgRect === undefined) {
+        const imgElement = document.getElementById(`manga-img-${stroke.page_idx}`);
+        if (imgElement) {
+          imgRect = imgElement.getBoundingClientRect();
+          rectCache.set(stroke.page_idx, imgRect);
+        } else {
+          rectCache.set(stroke.page_idx, null);
+        }
+      }
       
-      // Calculate the offset of the image relative to the canvas
+      if (!imgRect) return;
+
       const offsetX = imgRect.left - canvasRect.left;
       const offsetY = imgRect.top - canvasRect.top;
 
-      pageStrokes.forEach(stroke => {
-        const points = JSON.parse(stroke.points);
-        if (points.length === 0) return;
+      const points = JSON.parse(stroke.points);
+      if (points.length === 0) return;
 
-        ctx.beginPath();
+      ctx.beginPath();
+      
+      if (stroke.brush_type === 'mask') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.globalAlpha = 1.0;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = stroke.color;
-        ctx.lineWidth = stroke.size * scale;
         ctx.globalAlpha = stroke.opacity;
-        
-        ctx.moveTo(offsetX + points[0][0] * imgRect.width, offsetY + points[0][1] * imgRect.height);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(offsetX + points[i][0] * imgRect.width, offsetY + points[i][1] * imgRect.height);
-        }
-        ctx.stroke();
-      });
+      }
+      
+      ctx.lineWidth = stroke.size * scale;
+      
+      ctx.moveTo(offsetX + points[0][0] * imgRect.width, offsetY + points[0][1] * imgRect.height);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(offsetX + points[i][0] * imgRect.width, offsetY + points[i][1] * imgRect.height);
+      }
+      ctx.stroke();
     });
+    
+    // Reset composite operation
+    ctx.globalCompositeOperation = 'source-over';
   }, [strokes, scale, pan]);
 
   // Draw active stroke to buffer
@@ -104,9 +124,18 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
 
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = activeNoteColor;
+      
+      if (isMaskMode) {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.globalAlpha = 1.0;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = activeNoteColor;
+        ctx.globalAlpha = brushOpacity;
+      }
+      
       ctx.lineWidth = brushSize * scale;
-      ctx.globalAlpha = brushOpacity;
 
       ctx.beginPath();
       ctx.moveTo(offsetX + activeStroke.points[0][0] * imgRect.width, offsetY + activeStroke.points[0][1] * imgRect.height);
@@ -114,11 +143,13 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
         ctx.lineTo(offsetX + activeStroke.points[i][0] * imgRect.width, offsetY + activeStroke.points[i][1] * imgRect.height);
       }
       ctx.stroke();
+      
+      ctx.globalCompositeOperation = 'source-over';
     }
-  }, [activeStroke, scale, activeNoteColor, pan]);
+  }, [activeStroke, scale, activeNoteColor, pan, isMaskMode]);
 
   return (
-    <div className={`absolute inset-0 w-full h-full z-20 ${isDrawMode ? 'pointer-events-none' : 'pointer-events-none'}`}>
+    <div className={`absolute inset-0 w-full h-full z-20 ${(isDrawMode || isMaskMode) ? 'pointer-events-none' : 'pointer-events-none'}`}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
