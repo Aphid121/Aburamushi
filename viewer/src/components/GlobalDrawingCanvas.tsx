@@ -37,9 +37,12 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    const canvasRect = canvas.getBoundingClientRect();
+    canvas.width = canvasRect.width;
+    canvas.height = canvasRect.height;
+
+    // Disable image smoothing for pixelated strokes
+    ctx.imageSmoothingEnabled = false;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineCap = 'round';
@@ -110,6 +113,9 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
       buffer.height = canvas.height;
     }
 
+    // Disable image smoothing for pixelated strokes
+    ctx.imageSmoothingEnabled = false;
+
     ctx.clearRect(0, 0, buffer.width, buffer.height);
 
     if (activeStroke && activeStroke.points.length > 0) {
@@ -127,6 +133,7 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
         const mainCtx = canvas.getContext('2d');
         if (!mainCtx) return;
 
+        mainCtx.imageSmoothingEnabled = false;
         mainCtx.lineCap = 'round';
         mainCtx.lineJoin = 'round';
         mainCtx.globalCompositeOperation = 'destination-out';
