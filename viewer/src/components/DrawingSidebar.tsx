@@ -3,17 +3,25 @@ import { PenTool, Eraser } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 
 const CheckerboardIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
-    <path d="M3 9H21" stroke="currentColor" strokeWidth="2" />
-    <path d="M3 15H21" stroke="currentColor" strokeWidth="2" />
-    <path d="M9 3V21" stroke="currentColor" strokeWidth="2" />
-    <path d="M15 3V21" stroke="currentColor" strokeWidth="2" />
-    <rect x="3" y="3" width="6" height="6" fill="currentColor" />
-    <rect x="15" y="3" width="6" height="6" fill="currentColor" />
-    <rect x="9" y="9" width="6" height="6" fill="currentColor" />
-    <rect x="3" y="15" width="6" height="6" fill="currentColor" />
-    <rect x="15" y="15" width="6" height="6" fill="currentColor" />
+  <svg viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    {/* Row 1 */}
+    <rect x="0" y="0" width="5" height="5" fill="currentColor" />
+    <rect x="10" y="0" width="5" height="5" fill="currentColor" />
+    <rect x="20" y="0" width="5" height="5" fill="currentColor" />
+    {/* Row 2 */}
+    <rect x="5" y="5" width="5" height="5" fill="currentColor" />
+    <rect x="15" y="5" width="5" height="5" fill="currentColor" />
+    {/* Row 3 */}
+    <rect x="0" y="10" width="5" height="5" fill="currentColor" />
+    <rect x="10" y="10" width="5" height="5" fill="currentColor" />
+    <rect x="20" y="10" width="5" height="5" fill="currentColor" />
+    {/* Row 4 */}
+    <rect x="5" y="15" width="5" height="5" fill="currentColor" />
+    <rect x="15" y="15" width="5" height="5" fill="currentColor" />
+    {/* Row 5 */}
+    <rect x="0" y="20" width="5" height="5" fill="currentColor" />
+    <rect x="10" y="20" width="5" height="5" fill="currentColor" />
+    <rect x="20" y="20" width="5" height="5" fill="currentColor" />
   </svg>
 );
 
