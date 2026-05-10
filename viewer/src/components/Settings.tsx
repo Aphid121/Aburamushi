@@ -31,6 +31,32 @@ const Settings: React.FC = () => {
     setSaving(false);
   };
 
+  const handleClearData = async (type: string) => {
+    if (!window.confirm(`Are you sure you want to clear ${type.replace('_', ' ')}? This cannot be undone.`)) return;
+    if ((window as any).electronAPI) {
+      const result = await (window as any).electronAPI.clearAllData(type);
+      if (result.success) {
+        alert(`Successfully cleared ${type.replace('_', ' ')}!`);
+        if (type === 'full_reset') {
+          window.location.reload();
+        }
+      } else {
+        alert(`Failed to clear data: ${result.error}`);
+      }
+    }
+  };
+
+  const handleExportData = async (type: string) => {
+    if ((window as any).electronAPI) {
+      const result = await (window as any).electronAPI.exportData(type);
+      if (result.success) {
+        alert(`Successfully exported to ${result.filePath}`);
+      } else if (!result.canceled) {
+        alert(`Failed to export data: ${result.error}`);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500">
@@ -289,6 +315,83 @@ const Settings: React.FC = () => {
               </label>
             </div>
             <p className="text-xs text-gray-500 ml-8">Allows manually requesting the AI to build a challenge sentence using your "Known" words.</p>
+          </div>
+        </div>
+        {/* Data Management */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Data Management</h2>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Words & Vocabulary</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('words')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Words</button>
+                  <button onClick={() => handleExportData('words')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Banned Words</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('banned_words')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Banned</button>
+                  <button onClick={() => handleExportData('banned_words')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Quiz Progress</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('progress')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Progress</button>
+                  <button onClick={() => handleExportData('progress')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Drawings & Strokes</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('drawings')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Drawings</button>
+                  <button onClick={() => handleExportData('drawings')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Sticky Notes</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('sticky_notes')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Notes</button>
+                  <button onClick={() => handleExportData('sticky_notes')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 p-4 bg-gray-950 border border-gray-800 rounded-lg">
+                <h3 className="text-sm font-medium text-gray-300">Manga Library</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => handleClearData('manga')} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 text-xs py-1.5 rounded transition-colors">Clear Manga</button>
+                  <button onClick={() => handleExportData('manga')} className="flex-1 bg-blue-900/30 hover:bg-blue-900/50 text-blue-400 text-xs py-1.5 rounded transition-colors">Export</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-red-950/20 border border-red-900/50 rounded-lg">
+              <h3 className="text-sm font-bold text-red-400 mb-2">Danger Zone</h3>
+              <div className="flex gap-4 items-center">
+                <button 
+                  onClick={() => {
+                    if (window.confirm('Are you absolutely sure? This will delete ALL data, including your library, progress, drawings, and settings. This cannot be undone!')) {
+                      handleClearData('full_reset');
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded transition-colors"
+                >
+                  Full Reset
+                </button>
+                <button 
+                  onClick={() => handleExportData('full_reset')}
+                  className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-2 rounded transition-colors"
+                >
+                  Export Full Backup
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

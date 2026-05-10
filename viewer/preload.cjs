@@ -45,6 +45,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteUserWord: (term, reading) => ipcRenderer.invoke('delete-user-word', term, reading),
   banUserWord: (term, reading) => ipcRenderer.invoke('ban-user-word', term, reading),
   markNonJapanese: (term, reading) => ipcRenderer.invoke('mark-non-japanese', term, reading),
+  clearAllData: (type) => ipcRenderer.invoke('clear-all-data', type),
+  exportData: (type) => ipcRenderer.invoke('export-data', type),
   onMangaProgress: (callback) => {
     ipcRenderer.on('manga-progress', (_event, data) => callback(data));
   },

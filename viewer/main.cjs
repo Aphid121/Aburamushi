@@ -1584,6 +1584,138 @@ ipcMain.handle('delete-stroke', (event, id) => {
   }
 });
 
+// --- Data Management IPC Handlers ---
+
+ipcMain.handle('clear-all-data', (event, type) => {
+  try {
+    db.transaction(() => {
+      switch (type) {
+        case 'words':
+          db.prepare('DELETE FROM user_words WHERE status != "banned"').run();
+          break;
+        case 'banned_words':
+          db.prepare('DELETE FROM user_words WHERE status = "banned"').run();
+          break;
+        case 'progress':
+          db.prepare('DELETE FROM quiz_stats').run();
+          db.prepare('DELETE FROM quiz_cache').run();
+          break;
+        case 'drawings':
+          db.prepare('DELETE FROM strokes').run();
+          break;
+        case 'sticky_notes':
+          db.prepare('DELETE FROM sticky_notes').run();
+          break;
+        case 'manga':
+          // Delete files first
+          const mangas = db.prepare('SELECT path, temp_dir FROM library_manga').all();
+          for (const manga of mangas) {
+            if (manga.path && fs.existsSync(manga.path)) fs.unlinkSync(manga.path);
+            if (manga.temp_dir && fs.existsSync(manga.temp_dir)) fs.rmSync(manga.temp_dir, { recursive: true, force: true });
+          }
+          db.prepare('DELETE FROM library_manga').run();
+          db.prepare('DELETE FROM manga_chats').run();
+          db.prepare('DELETE FROM chat_messages').run();
+          break;
+        case 'full_reset':
+          // Delete manga files
+          const allMangas = db.prepare('SELECT path, temp_dir FROM library_manga').all();
+          for (const manga of allMangas) {
+            if (manga.path && fs.existsSync(manga.path)) fs.unlinkSync(manga.path);
+            if (manga.temp_dir && fs.existsSync(manga.temp_dir)) fs.rmSync(manga.temp_dir, { recursive: true, force: true });
+          }
+          // Clear all tables except settings
+          db.prepare('DELETE FROM user_words').run();
+          db.prepare('DELETE FROM quiz_stats').run();
+          db.prepare('DELETE FROM quiz_cache').run();
+          db.prepare('DELETE FROM strokes').run();
+          db.prepare('DELETE FROM sticky_notes').run();
+          db.prepare('DELETE FROM library_manga').run();
+          db.prepare('DELETE FROM manga_chats').run();
+          db.prepare('DELETE FROM chat_messages').run();
+          db.prepare('DELETE FROM llm_memory').run();
+          break;
+      }
+    })();
+    return { success: true };
+  } catch (error) {
+    console.error(`Error clearing data (${type}):`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('export-data', async (event, type) => {
+  try {
+    let dataToExport = null;
+    let defaultFilename = 'export.json';
+
+    switch (type) {
+      case 'words':
+        dataToExport = db.prepare('SELECT * FROM user_words WHERE status != "banned"').all();
+        defaultFilename = 'aburamushi_words.json';
+        break;
+      case 'banned_words':
+        dataToExport = db.prepare('SELECT * FROM user_words WHERE status = "banned"').all();
+        defaultFilename = 'aburamushi_banned_words.json';
+        break;
+      case 'progress':
+        dataToExport = {
+          stats: db.prepare('SELECT * FROM quiz_stats').all(),
+          cache: db.prepare('SELECT * FROM quiz_cache').all()
+        };
+        defaultFilename = 'aburamushi_progress.json';
+        break;
+      case 'drawings':
+        dataToExport = db.prepare('SELECT * FROM strokes').all();
+        defaultFilename = 'aburamushi_drawings.json';
+        break;
+      case 'sticky_notes':
+        dataToExport = db.prepare('SELECT * FROM sticky_notes').all();
+        defaultFilename = 'aburamushi_sticky_notes.json';
+        break;
+      case 'manga':
+        dataToExport = {
+          library: db.prepare('SELECT * FROM library_manga').all(),
+          chats: db.prepare('SELECT * FROM manga_chats').all(),
+          messages: db.prepare('SELECT * FROM chat_messages').all()
+        };
+        defaultFilename = 'aburamushi_manga_metadata.json';
+        break;
+      case 'full_reset':
+        dataToExport = {
+          words: db.prepare('SELECT * FROM user_words').all(),
+          quiz_stats: db.prepare('SELECT * FROM quiz_stats').all(),
+          quiz_cache: db.prepare('SELECT * FROM quiz_cache').all(),
+          strokes: db.prepare('SELECT * FROM strokes').all(),
+          sticky_notes: db.prepare('SELECT * FROM sticky_notes').all(),
+          library: db.prepare('SELECT * FROM library_manga').all(),
+          chats: db.prepare('SELECT * FROM manga_chats').all(),
+          messages: db.prepare('SELECT * FROM chat_messages').all(),
+          settings: db.prepare('SELECT * FROM settings').all(),
+          memory: db.prepare('SELECT * FROM llm_memory').all()
+        };
+        defaultFilename = 'aburamushi_full_backup.json';
+        break;
+    }
+
+    if (!dataToExport) return { success: false, error: "Invalid export type" };
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Export Data',
+      defaultPath: defaultFilename,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    });
+
+    if (canceled || !filePath) return { success: false, canceled: true };
+
+    fs.writeFileSync(filePath, JSON.stringify(dataToExport, null, 2));
+    return { success: true, filePath };
+  } catch (error) {
+    console.error(`Error exporting data (${type}):`, error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('select-manga-cover', async (event) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Select Cover Image',
