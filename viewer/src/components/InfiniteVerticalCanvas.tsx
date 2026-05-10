@@ -29,6 +29,8 @@ interface InfiniteVerticalCanvasProps {
   onUpdateNote: (note: StickyNoteData) => void;
   onDeleteNote: (id: string) => void;
   isDrawMode?: boolean;
+  isEraserMode?: boolean;
+  isMaskMode?: boolean;
   strokes: any[];
   activeStroke: { pageIdx: number, points: number[][] } | null;
   activeNoteColor: string;
@@ -38,7 +40,7 @@ const InfiniteVerticalCanvas: React.FC<InfiniteVerticalCanvasProps> = ({
   pages, scale, isInverted, isDebugMode, isCtrlDown, isShiftDown, isRightMouseDown,
   wordStatuses, activePopups, handleWordClick, handleClosePopup, bringPopupToFront,
   getWordColorClass, onZoom, currentPage, onPageChange, onWordStatusChange, isDual = false, spacing = 0,
-  mangaId, stickyNotes, onUpdateNote, onDeleteNote, isDrawMode = false, strokes, activeStroke, activeNoteColor
+  mangaId, stickyNotes, onUpdateNote, onDeleteNote, isDrawMode = false, isEraserMode = false, isMaskMode = false, strokes, activeStroke, activeNoteColor
 }) => {
   const parentRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -184,6 +186,9 @@ const InfiniteVerticalCanvas: React.FC<InfiniteVerticalCanvasProps> = ({
   }, [pan.y, scale, viewport.h, rowLayouts, currentPage, onPageChange]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isDrawMode || isEraserMode || isMaskMode) {
+      e.stopPropagation();
+    }
     if (e.button !== 0 && e.button !== 1) return;
     e.preventDefault();
     setIsDragging(true);
@@ -321,7 +326,7 @@ const InfiniteVerticalCanvas: React.FC<InfiniteVerticalCanvasProps> = ({
   return (
     <div 
       ref={parentRef}
-      className="w-full h-full overflow-hidden cursor-grab active:cursor-grabbing"
+      className={`w-full h-full overflow-hidden ${(isDrawMode || isEraserMode) ? 'cursor-none' : 'cursor-grab active:cursor-grabbing'}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
