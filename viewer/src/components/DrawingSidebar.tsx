@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PenTool, Eraser, Grid } from 'lucide-react';
+import { PenTool, Eraser, SquareDashed } from 'lucide-react';
 import { HexColorPicker } from 'react-colorful';
 
 interface DrawingSidebarProps {
@@ -115,7 +115,7 @@ const DrawingSidebar: React.FC<DrawingSidebarProps> = ({
           className={`p-3 rounded-xl transition-all flex-1 flex justify-center ${isMaskMode ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'}`}
           title="Mask Tool (Fast Eraser)"
         >
-          <Grid className="w-5 h-5" />
+          <SquareDashed className="w-5 h-5" />
         </button>
 
         <button
