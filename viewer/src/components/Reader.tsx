@@ -565,55 +565,83 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   }, [scale, viewMode, isDrawMode]);
 
   const handleEraser = async (e: React.MouseEvent) => {
-    // Find which page we clicked on
-    let targetPageIdx = -1;
-    let imgElement = null;
-    
-    const images = document.querySelectorAll('img[id^="manga-img-"]');
-    for (const img of Array.from(images)) {
-      const rect = img.getBoundingClientRect();
-      if (e.clientX >= rect.left && e.clientX <= rect.right &&
-          e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        targetPageIdx = parseInt(img.id.replace('manga-img-', ''), 10);
-        imgElement = img;
-        break;
-      }
-    }
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-    if (targetPageIdx !== -1 && imgElement) {
-      const rect = imgElement.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
+    // Calculate mouse position relative to the container in screen pixels
+    const mousePixelX = e.clientX - rect.left;
+    const mousePixelY = e.clientY - rect.top;
+    
+    // The eraser radius in screen pixels
+    const eraserPixelRadius = (brushSize * scale) / 2;
+    
+    const strokesToDelete: string[] = [];
+    
+    // We need to check ALL strokes, not just the ones on a specific page,
+    // because the user might have drawn outside the page bounds!
+    
+    const rectCache = new Map();
+    
+    for (const stroke of strokes) {
+      if (stroke.note_id !== null) continue; // Skip sticky note strokes for now
       
-      // Find strokes on this page
-      const pageStrokes = strokes.filter(s => s.page_idx === targetPageIdx && s.note_id === null);
-      
-      // Check distance to each stroke
-      // Convert brushSize to a normalized radius relative to the image width
-      // We divide by 2 to get radius from diameter, and divide by rect.width to normalize
-      const eraserRadius = (brushSize / 2) / rect.width;
-      
-      const strokesToDelete: string[] = [];
-      
-      for (const stroke of pageStrokes) {
-        const points = JSON.parse(stroke.points);
-        for (const point of points) {
-          const dx = point[0] - x;
-          const dy = point[1] - y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist < eraserRadius) {
-            strokesToDelete.push(stroke.id);
-            break; // Found a hit, no need to check other points in this stroke
-          }
+      let imgRect = rectCache.get(stroke.page_idx);
+      if (imgRect === undefined) {
+        const imgElement = document.getElementById(`manga-img-${stroke.page_idx}`);
+        if (imgElement) {
+          imgRect = imgElement.getBoundingClientRect();
+          rectCache.set(stroke.page_idx, imgRect);
+        } else {
+          rectCache.set(stroke.page_idx, null);
         }
       }
       
-      if (strokesToDelete.length > 0) {
-        setStrokes(prev => prev.filter(s => !strokesToDelete.includes(s.id)));
-        if ((window as any).electronAPI) {
-          for (const id of strokesToDelete) {
-            await (window as any).electronAPI.deleteStroke(id);
-          }
+      if (!imgRect) continue;
+      
+      // Calculate the offset of the image relative to the container
+      const offsetX = imgRect.left - rect.left;
+      const offsetY = imgRect.top - rect.top;
+
+      const points = JSON.parse(stroke.points);
+      
+      // Calculate the visual radius of the stroke in screen pixels
+      let visualStrokeRadius = (stroke.size * scale) / 2;
+      if (stroke.hardness !== undefined && stroke.hardness < 1.0) {
+         const maxBlur = (stroke.size * scale) * 0.5;
+         const blurAmount = (1.0 - stroke.hardness) * maxBlur;
+         const minCoreSize = (stroke.size * scale) * 0.5;
+         const coreSize = (stroke.size * scale) * stroke.hardness;
+         const actualCoreSize = Math.max(minCoreSize, coreSize);
+         // The visual radius is the core radius plus the blur spread
+         visualStrokeRadius = (actualCoreSize / 2) + blurAmount;
+      }
+      
+      const effectivePixelRadius = eraserPixelRadius + visualStrokeRadius;
+
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i];
+        
+        // Convert normalized point back to screen pixels relative to the container
+        const pointPixelX = offsetX + (point[0] * imgRect.width);
+        const pointPixelY = offsetY + (point[1] * imgRect.height);
+        
+        const dx = pointPixelX - mousePixelX;
+        const dy = pointPixelY - mousePixelY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < effectivePixelRadius) {
+          strokesToDelete.push(stroke.id);
+          break; // Found a hit, no need to check other points in this stroke
+        }
+      }
+    }
+    
+    if (strokesToDelete.length > 0) {
+      setStrokes(prev => prev.filter(s => !strokesToDelete.includes(s.id)));
+
+      if ((window as any).electronAPI) {
+        for (const id of strokesToDelete) {
+          await (window as any).electronAPI.deleteStroke(id);
         }
       }
     }

@@ -95,7 +95,7 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
     ctx.globalCompositeOperation = 'source-over';
   }, [strokes, scale, pan]);
 
-  // Draw active stroke to buffer
+  // Draw active stroke to buffer (or main canvas if masking)
   useEffect(() => {
     const buffer = bufferCanvasRef.current;
     if (!buffer) return;
@@ -122,29 +122,42 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
       const offsetX = imgRect.left - canvasRect.left;
       const offsetY = imgRect.top - canvasRect.top;
 
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      
       if (isMaskMode) {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.strokeStyle = 'rgba(0,0,0,1)';
-        ctx.globalAlpha = 1.0;
+        // For mask mode, we draw directly onto the main canvas so it erases in real-time!
+        const mainCtx = canvas.getContext('2d');
+        if (!mainCtx) return;
+
+        mainCtx.lineCap = 'round';
+        mainCtx.lineJoin = 'round';
+        mainCtx.globalCompositeOperation = 'destination-out';
+        mainCtx.strokeStyle = 'rgba(0,0,0,1)';
+        mainCtx.globalAlpha = 1.0;
+        mainCtx.lineWidth = brushSize * scale;
+
+        mainCtx.beginPath();
+        mainCtx.moveTo(offsetX + activeStroke.points[0][0] * imgRect.width, offsetY + activeStroke.points[0][1] * imgRect.height);
+        for (let i = 1; i < activeStroke.points.length; i++) {
+          mainCtx.lineTo(offsetX + activeStroke.points[i][0] * imgRect.width, offsetY + activeStroke.points[i][1] * imgRect.height);
+        }
+        mainCtx.stroke();
+        
+        mainCtx.globalCompositeOperation = 'source-over';
       } else {
+        // For normal drawing, we draw to the buffer canvas
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = activeNoteColor;
         ctx.globalAlpha = brushOpacity;
-      }
-      
-      ctx.lineWidth = brushSize * scale;
+        ctx.lineWidth = brushSize * scale;
 
-      ctx.beginPath();
-      ctx.moveTo(offsetX + activeStroke.points[0][0] * imgRect.width, offsetY + activeStroke.points[0][1] * imgRect.height);
-      for (let i = 1; i < activeStroke.points.length; i++) {
-        ctx.lineTo(offsetX + activeStroke.points[i][0] * imgRect.width, offsetY + activeStroke.points[i][1] * imgRect.height);
+        ctx.beginPath();
+        ctx.moveTo(offsetX + activeStroke.points[0][0] * imgRect.width, offsetY + activeStroke.points[0][1] * imgRect.height);
+        for (let i = 1; i < activeStroke.points.length; i++) {
+          ctx.lineTo(offsetX + activeStroke.points[i][0] * imgRect.width, offsetY + activeStroke.points[i][1] * imgRect.height);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
-      
-      ctx.globalCompositeOperation = 'source-over';
     }
   }, [activeStroke, scale, activeNoteColor, pan, isMaskMode]);
 
