@@ -48,7 +48,6 @@ const GlobalDrawingCanvas: React.FC<GlobalDrawingCanvasProps> = ({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    const canvasRect = canvas.getBoundingClientRect();
     const rectCache = new Map();
 
     strokes.forEach(stroke => {
