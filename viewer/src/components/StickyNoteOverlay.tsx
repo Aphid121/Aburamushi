@@ -37,6 +37,7 @@ interface StickyNoteOverlayProps {
   onDeleteNote: (id: string) => void;
   isDraggingCanvas: boolean;
   isDrawMode?: boolean;
+  isMaskMode?: boolean;
   isPageCanvas?: boolean;
 }
 
@@ -48,6 +49,7 @@ const StickyNoteOverlay: React.FC<StickyNoteOverlayProps> = ({
   onDeleteNote,
   isDraggingCanvas,
   isDrawMode = false,
+  isMaskMode = false,
   isPageCanvas = false
 }) => {
   const pageNotes = notes.filter(n => n.page_idx === pageIdx);
@@ -65,6 +67,7 @@ const StickyNoteOverlay: React.FC<StickyNoteOverlayProps> = ({
           onDelete={() => onDeleteNote(note.id)}
           isDraggingCanvas={isDraggingCanvas}
           isDrawMode={isDrawMode}
+          isMaskMode={isMaskMode}
           isPageCanvas={isPageCanvas}
         />
       ))}
@@ -79,10 +82,11 @@ interface StickyNoteProps {
   onDelete: () => void;
   isDraggingCanvas: boolean;
   isDrawMode: boolean;
+  isMaskMode: boolean;
   isPageCanvas: boolean;
 }
 
-const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete, isDraggingCanvas, isDrawMode, isPageCanvas }) => {
+const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete, isDraggingCanvas, isDrawMode, isMaskMode, isPageCanvas }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [localPos, setLocalPos] = useState({ x: note.local_x, y: note.local_y });
@@ -156,6 +160,7 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
     canvas.width = rect.width;
     canvas.height = rect.height;
 
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -165,9 +170,18 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
       if (points.length === 0) return;
 
       ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
+      
+      if (stroke.brush_type === 'mask') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.strokeStyle = 'rgba(0,0,0,1)';
+        ctx.globalAlpha = 1.0;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = stroke.color;
+        ctx.globalAlpha = stroke.opacity;
+      }
+      
       ctx.lineWidth = stroke.size;
-      ctx.globalAlpha = stroke.opacity;
       
       // Basic drawing (we'll add hardness/smoothing later)
       ctx.moveTo(points[0][0] * canvas.width, points[0][1] * canvas.height);
@@ -176,10 +190,12 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
       }
       ctx.stroke();
     });
+    
+    ctx.globalCompositeOperation = 'source-over';
   }, [strokes, note.width, note.height, scale]); // Re-run if size or scale changes
 
   const handleDrawStart = (e: React.PointerEvent) => {
-    if (!isDrawMode || e.button !== 0) return;
+    if (!(isDrawMode || isMaskMode) || e.button !== 0) return;
     
     // Always stop propagation when drawing on a sticky note
     // so we don't accidentally drag the note or pan the canvas
@@ -203,7 +219,7 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
   };
 
   const handleDrawMove = (e: React.PointerEvent) => {
-    if (!isDrawing || !isDrawMode) return;
+    if (!isDrawing || !(isDrawMode || isMaskMode)) return;
     
     e.stopPropagation();
     e.preventDefault();
@@ -217,13 +233,36 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
 
     setCurrentPath(prev => [...prev, [x, y]]);
 
-    // Draw the current stroke to the buffer canvas
-    const buffer = bufferCanvasRef.current;
-    if (!buffer) return;
-    const ctx = buffer.getContext('2d');
-    if (!ctx) return;
+    if (isMaskMode) {
+      // For mask mode, we draw directly onto the main canvas
+      const mainCtx = canvas.getContext('2d');
+      if (!mainCtx) return;
 
-    if (currentPath.length === 0) return;
+      mainCtx.imageSmoothingEnabled = false;
+      mainCtx.lineCap = 'round';
+      mainCtx.lineJoin = 'round';
+      mainCtx.globalCompositeOperation = 'destination-out';
+      mainCtx.strokeStyle = 'rgba(0,0,0,1)';
+      mainCtx.lineWidth = 2;
+      mainCtx.globalAlpha = 1.0;
+
+      mainCtx.beginPath();
+      mainCtx.moveTo(currentPath[0][0] * canvas.width, currentPath[0][1] * canvas.height);
+      for (let i = 1; i < currentPath.length; i++) {
+        mainCtx.lineTo(currentPath[i][0] * canvas.width, currentPath[i][1] * canvas.height);
+      }
+      mainCtx.lineTo(x * canvas.width, y * canvas.height);
+      mainCtx.stroke();
+      
+      mainCtx.globalCompositeOperation = 'source-over';
+    } else {
+      // Draw the current stroke to the buffer canvas
+      const buffer = bufferCanvasRef.current;
+      if (!buffer) return;
+      const ctx = buffer.getContext('2d');
+      if (!ctx) return;
+
+      if (currentPath.length === 0) return;
 
     // Ensure buffer resolution matches
     if (buffer.width !== canvas.width || buffer.height !== canvas.height) {
@@ -231,24 +270,26 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
       buffer.height = canvas.height;
     }
 
+    ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, buffer.width, buffer.height);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#000000'; // Hardcoded for now
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 1.0;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#000000'; // Hardcoded for now
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 1.0;
 
-    ctx.beginPath();
-    ctx.moveTo(currentPath[0][0] * buffer.width, currentPath[0][1] * buffer.height);
-    for (let i = 1; i < currentPath.length; i++) {
-      ctx.lineTo(currentPath[i][0] * buffer.width, currentPath[i][1] * buffer.height);
+      ctx.beginPath();
+      ctx.moveTo(currentPath[0][0] * buffer.width, currentPath[0][1] * buffer.height);
+      for (let i = 1; i < currentPath.length; i++) {
+        ctx.lineTo(currentPath[i][0] * buffer.width, currentPath[i][1] * buffer.height);
+      }
+      ctx.lineTo(x * buffer.width, y * buffer.height);
+      ctx.stroke();
     }
-    ctx.lineTo(x * buffer.width, y * buffer.height);
-    ctx.stroke();
   };
 
   const handleDrawEnd = async (e: React.PointerEvent) => {
-    if (!isDrawing || !isDrawMode) return;
+    if (!isDrawing || !(isDrawMode || isMaskMode)) return;
     
     e.stopPropagation();
     e.preventDefault();
@@ -273,8 +314,8 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
       manga_id: note.manga_id,
       page_idx: note.page_idx,
       note_id: isPageCanvas ? null : note.id,
-      brush_type: 'pen',
-      color: '#000000', // Hardcoded for now
+      brush_type: isMaskMode ? 'mask' : 'pen',
+      color: isMaskMode ? '#000000' : '#000000', // Hardcoded for now
       size: 2,
       opacity: 1.0,
       hardness: 1.0,
