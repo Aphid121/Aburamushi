@@ -379,7 +379,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
     let step = 1;
     if (viewMode === 'dual') {
       step = 2;
-    } else if (viewMode === 'infinite_vertical_dual') {
+    } else if (viewMode === 'scroller_vertical_dual') {
       const page1 = mangaData.pages[currentPage];
       const isSpread1 = (page1.width || 800) > (page1.height || 1200);
       if (!isSpread1 && currentPage + 1 < mangaData.pages.length) {
@@ -1394,13 +1394,13 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
-        {isLoading && !viewMode.startsWith('infinite') ? (
+        {isLoading && !viewMode.startsWith('scroller') ? (
           <div className="absolute inset-0 flex items-center justify-center z-50">
             <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
           </div>
         ) : null}
         
-        {viewMode === 'infinite_vertical' || viewMode === 'infinite_vertical_dual' ? (
+        {viewMode === 'scroller_vertical' || viewMode === 'scroller_vertical_dual' ? (
           <ErrorBoundary>
               <InfiniteVerticalCanvas
                 pages={mangaData.pages}
@@ -1422,19 +1422,21 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                   setWordStatuses(prev => ({ ...prev, [term]: status }));
                 }}
                 onZoom={handleZoom}
-                isDual={viewMode === 'infinite_vertical_dual'}
+                isDual={viewMode === 'scroller_vertical_dual'}
                 spacing={pageSpacing}
                 mangaId={mangaId}
                 stickyNotes={stickyNotes}
                 onUpdateNote={handleUpdateNote}
                 onDeleteNote={handleDeleteNote}
                 isDrawMode={isDrawMode}
+                isEraserMode={isEraserMode}
+                isMaskMode={isMaskMode}
                 strokes={strokes}
                 activeStroke={activeStroke}
                 activeNoteColor={activeNoteColor}
               />
           </ErrorBoundary>
-        ) : viewMode === 'infinite_horizontal' || viewMode === 'infinite_horizontal_rtl' ? (
+        ) : viewMode === 'scroller_horizontal' || viewMode === 'scroller_horizontal_rtl' ? (
           <ErrorBoundary>
               <InfiniteHorizontalCanvas
                 pages={mangaData.pages}
@@ -1456,13 +1458,15 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                   setWordStatuses(prev => ({ ...prev, [term]: status }));
                 }}
                 onZoom={handleZoom}
-                isRTL={viewMode === 'infinite_horizontal_rtl'}
+                isRTL={viewMode === 'scroller_horizontal_rtl'}
                 spacing={pageSpacing}
                 mangaId={mangaId}
                 stickyNotes={stickyNotes}
                 onUpdateNote={handleUpdateNote}
                 onDeleteNote={handleDeleteNote}
                 isDrawMode={isDrawMode}
+                isEraserMode={isEraserMode}
+                isMaskMode={isMaskMode}
                 strokes={strokes}
                 activeStroke={activeStroke}
                 activeNoteColor={activeNoteColor}
