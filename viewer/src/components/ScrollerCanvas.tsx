@@ -185,33 +185,40 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       const p1 = pages[i];
       const w1 = p1.width || 800;
       const h1 = p1.height || 1200;
-      // A page is a spread if its width is greater than its height
       const isSpread1 = w1 > h1;
 
-      if (isSpread1) {
-        // Spreads always get their own row, even in single mode
-        r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
-        i += 1;
-      } else {
-        if (isDual && i + 1 < pages.length) {
-          const p2 = pages[i + 1];
-          const w2 = p2.width || 800;
-          const h2 = p2.height || 1200;
-          const isSpread2 = w2 > h2;
-          if (!isSpread2) {
-            // Two normal pages side-by-side
-            r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
-            i += 2;
+      if (isDual) {
+        if (isSpread1) {
+          // Spreads take up both columns
+          r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
+          i += 1;
+        } else {
+          // Normal page in column 1
+          if (i + 1 < pages.length) {
+            const p2 = pages[i + 1];
+            const w2 = p2.width || 800;
+            const h2 = p2.height || 1200;
+            const isSpread2 = w2 > h2;
+            
+            if (!isSpread2) {
+              // Two normal pages side-by-side
+              r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
+              i += 2;
+            } else {
+              // Next page is a spread, so this normal page gets its own row (with an empty slot next to it)
+              r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
+              i += 1;
+            }
           } else {
-            // Next page is a spread, so this normal page gets its own row
+            // Last page is normal, gets its own row
             r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
             i += 1;
           }
-        } else {
-          // Single mode, or last page in dual mode
-          r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
-          i += 1;
         }
+      } else {
+        // Single mode: every page gets its own row, but spreads are marked so they render 2x wide
+        r.push({ isSpread: isSpread1, pages: [{ ...p1, originalIndex: i }] });
+        i += 1;
       }
     }
     return r;
@@ -240,7 +247,7 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
             className="flex justify-center items-center w-full"
             style={{ gap: `${spacing}px` }}
           >
-            {row.pages.map((page) => {
+            {row.pages.map((page, subIdx) => {
               const pageIdx = page.originalIndex;
               const isVisible = visibleIndices.has(pageIdx);
               
@@ -248,19 +255,21 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
               const pageH = page.height || 1200;
               
               const isSpread = row.isSpread;
-              // In dual mode, a spread takes up the width of two pages PLUS the spacing between them.
-              // In single mode, a spread also takes up the width of two pages PLUS the spacing, 
-              // because we want it to be twice as wide as a normal page to maintain the correct visual scale.
               const targetW = isSpread ? (finalW * 2 + spacing) : finalW;
               const finalH = pageH * (targetW / pageW);
 
               return (
-                <div 
-                  key={pageIdx}
-                  data-page-idx={pageIdx}
-                  className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
-                  style={{ width: `${targetW}px`, height: 'auto' }}
-                >
+                <React.Fragment key={pageIdx}>
+                  {/* If we are in dual mode, and this is a single page on its own row (because a spread is next), we need to add a dummy spacer to keep it in the correct column */}
+                  {isDual && !isSpread && row.pages.length === 1 && subIdx === 0 && (
+                    <div style={{ width: `${finalW}px` }} className="shrink-0" />
+                  )}
+                  
+                  <div 
+                    data-page-idx={pageIdx}
+                    className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
+                    style={{ width: `${targetW}px`, height: 'auto' }}
+                  >
                   {isVisible ? (
                     <>
                       <VirtualPage 
@@ -313,10 +322,11 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        ))}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      ))}
       </div>
     </div>
   );
