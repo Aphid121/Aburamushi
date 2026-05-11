@@ -188,20 +188,20 @@ const Settings: React.FC = () => {
               <p className="text-xs text-gray-500 mt-1">Adjusts the default size of the dictionary popup (Default: 0.45).</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Page Spacing (Infinite Modes)</label>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Page Spacing (Scroller Modes)</label>
               <div className="flex items-center gap-4">
                 <input 
                   type="number" 
                   min="0" 
                   max="500" 
                   step="1"
-                  value={settings['infinite_page_spacing'] || '0'} 
-                  onChange={(e) => handleChange('infinite_page_spacing', e.target.value)}
+                  value={settings['scroller_page_spacing'] || '0'} 
+                  onChange={(e) => handleChange('scroller_page_spacing', e.target.value)}
                   className="w-24 bg-gray-950 border border-gray-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-blue-500 transition-colors font-mono"
                 />
                 <span className="text-gray-400 text-sm">px</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">The gap between pages in Infinite Vertical and Infinite Horizontal modes.</p>
+              <p className="text-xs text-gray-500 mt-1">The gap between pages in Scroller and Dual Scroller modes.</p>
             </div>
           </div>
         </div>

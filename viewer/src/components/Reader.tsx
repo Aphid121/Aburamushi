@@ -83,8 +83,8 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
     const loadSettings = async () => {
       if ((window as any).electronAPI) {
         const settings = await (window as any).electronAPI.getSettings();
-        if (settings['infinite_page_spacing']) {
-          setPageSpacing(parseInt(settings['infinite_page_spacing'], 10));
+        if (settings['scroller_page_spacing']) {
+          setPageSpacing(parseInt(settings['scroller_page_spacing'], 10));
         }
       }
     };
