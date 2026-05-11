@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Loader2, Maximize, Minimize, BookOpen, Contrast, XSquare, Search as SearchIcon, X, Settings as SettingsIcon, MessageSquare, ZoomIn, ZoomOut, LayoutGrid, LayoutTemplate, Columns, ArrowLeftRight, ArrowDownUp, SplitSquareHorizontal, StickyNote as StickyNoteIcon, PlusSquare, MinusSquare, Bug, PenTool, Eraser } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import PageOverlay from './PageOverlay';
-import InfiniteVerticalCanvas from './InfiniteVerticalCanvas';
-import InfiniteHorizontalCanvas from './InfiniteHorizontalCanvas';
+import ScrollerCanvas from './ScrollerCanvas';
 import DrawingSidebar from './DrawingSidebar';
 import StickyNoteSidebar, { NOTE_COLORS } from './StickyNoteSidebar';
 import StickyNoteOverlay, { type StickyNoteData } from './StickyNoteOverlay';
@@ -92,7 +91,16 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
     loadSettings();
   }, []);
 
-  const [viewMode, setViewMode] = useState<'single' | 'dual' | 'scroller_vertical' | 'scroller_horizontal' | 'scroller_vertical_dual' | 'scroller_horizontal_rtl'>('single');
+  const [viewMode, setViewMode] = useState<'single' | 'dual' | 'scroller' | 'scroller_dual'>('single');
+
+  const toggleViewMode = () => {
+    setViewMode(prev => {
+      if (prev === 'single') return 'dual';
+      if (prev === 'dual') return 'scroller';
+      if (prev === 'scroller') return 'scroller_dual';
+      return 'single';
+    });
+  };
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1400,9 +1408,9 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           </div>
         ) : null}
         
-        {viewMode === 'scroller_vertical' || viewMode === 'scroller_vertical_dual' ? (
+        {viewMode.startsWith('scroller') ? (
           <ErrorBoundary>
-              <InfiniteVerticalCanvas
+              <ScrollerCanvas
                 pages={mangaData.pages}
                 scale={scale}
                 isInverted={isInverted}
@@ -1418,11 +1426,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                 getWordColorClass={getWordColorClass}
                 currentPage={currentPage}
                 onPageChange={setCurrentPage}
-                onWordStatusChange={(status, term) => {
-                  setWordStatuses(prev => ({ ...prev, [term]: status }));
-                }}
-                onZoom={handleZoom}
-                isDual={viewMode === 'scroller_vertical_dual'}
+                isDual={viewMode === 'scroller_dual'}
                 spacing={pageSpacing}
                 mangaId={mangaId}
                 stickyNotes={stickyNotes}
@@ -1434,42 +1438,9 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                 strokes={strokes}
                 activeStroke={activeStroke}
                 activeNoteColor={activeNoteColor}
-              />
-          </ErrorBoundary>
-        ) : viewMode === 'scroller_horizontal' || viewMode === 'scroller_horizontal_rtl' ? (
-          <ErrorBoundary>
-              <InfiniteHorizontalCanvas
-                pages={mangaData.pages}
-                scale={scale}
-                isInverted={isInverted}
-                isDebugMode={isDebugMode}
-                isCtrlDown={isCtrlDown}
-                isShiftDown={isShiftDown}
-                isRightMouseDown={isRightMouseDown}
-                wordStatuses={wordStatuses}
-                activePopups={activePopups}
-                handleWordClick={handleWordClick}
-                handleClosePopup={handleClosePopup}
-                bringPopupToFront={bringPopupToFront}
-                getWordColorClass={getWordColorClass}
-                currentPage={currentPage}
-                onPageChange={setCurrentPage}
-                onWordStatusChange={(status, term) => {
-                  setWordStatuses(prev => ({ ...prev, [term]: status }));
-                }}
-                onZoom={handleZoom}
-                isRTL={viewMode === 'scroller_horizontal_rtl'}
-                spacing={pageSpacing}
-                mangaId={mangaId}
-                stickyNotes={stickyNotes}
-                onUpdateNote={handleUpdateNote}
-                onDeleteNote={handleDeleteNote}
-                isDrawMode={isDrawMode}
-                isEraserMode={isEraserMode}
-                isMaskMode={isMaskMode}
-                strokes={strokes}
-                activeStroke={activeStroke}
-                activeNoteColor={activeNoteColor}
+                brushSize={brushSize}
+                brushOpacity={brushOpacity}
+                brushHardness={brushHardness}
               />
           </ErrorBoundary>
         ) : viewMode === 'single' || viewMode === 'dual' ? (
@@ -1929,15 +1900,13 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-800 border border-gray-700 rounded-xl p-1 flex flex-col gap-1 shadow-2xl">
               <button onClick={() => { setViewMode('single'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'single' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Single Page</button>
               <button onClick={() => { setViewMode('dual'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'dual' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Dual Page</button>
-              <button onClick={() => { setViewMode('infinite_vertical'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'infinite_vertical' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Infinite Vertical</button>
-              <button onClick={() => { setViewMode('infinite_vertical_dual'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'infinite_vertical_dual' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Infinite Vertical (Dual)</button>
-              <button onClick={() => { setViewMode('infinite_horizontal'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'infinite_horizontal' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Infinite Horizontal (LTR)</button>
-              <button onClick={() => { setViewMode('infinite_horizontal_rtl'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'infinite_horizontal_rtl' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Infinite Horizontal (RTL)</button>
+              <button onClick={() => { setViewMode('scroller'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'scroller' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Scroller</button>
+              <button onClick={() => { setViewMode('scroller_dual'); setIsViewMenuOpen(false); }} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap ${viewMode === 'scroller_dual' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700 text-gray-300'}`}>Dual Scroller</button>
             </div>
           )}
           <button 
             onClick={() => setIsViewMenuOpen(prev => !prev)}
-            className={`p-2 rounded-xl transition-all ${viewMode.startsWith('infinite') ? 'bg-purple-500/20 text-purple-400' : viewMode === 'dual' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/10 text-gray-300 hover:text-white'}`}
+            className={`p-2 rounded-xl transition-all ${viewMode.startsWith('scroller') ? 'bg-purple-500/20 text-purple-400' : viewMode === 'dual' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/10 text-gray-300 hover:text-white'}`}
             title="View Mode"
           >
             <BookOpen className="w-5 h-5" />
