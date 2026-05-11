@@ -298,7 +298,7 @@ const InfiniteHorizontalCanvas: React.FC<InfiniteHorizontalCanvasProps> = ({
   return (
     <div 
       ref={parentRef}
-      className={`w-full h-full overflow-hidden ${(isDrawMode || isEraserMode) ? 'cursor-none' : 'cursor-grab active:cursor-grabbing'}`}
+      className={`w-full h-full overflow-hidden ${(isDrawMode || isEraserMode || isMaskMode) ? 'cursor-none' : 'cursor-grab active:cursor-grabbing'}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
