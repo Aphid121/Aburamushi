@@ -133,79 +133,73 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       onScroll={handleScroll}
     >
       <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: '0' }}>
-        {rows.map((row) => (
-          <div 
-            key={row.startIndex}
-            data-page-idx={row.startIndex}
-            className="scroller-page-container flex justify-center items-center w-full"
-            style={{ gap: `${spacing}px` }}
-          >
-            {row.pages.map((page, subIdx) => {
-              const pageIdx = row.startIndex + subIdx;
-              const isVisible = visibleIndices.has(pageIdx);
-              
-              return (
+        {pages.map((page, pageIdx) => {
+          const isVisible = visibleIndices.has(pageIdx);
+          
+          return (
+            <div 
+              key={pageIdx}
+              data-page-idx={pageIdx}
+              className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
+              style={{ 
+                width: 'auto',
+                height: 'auto',
+              }}
+            >
+              {isVisible ? (
+                <>
+                  <VirtualPage 
+                    pageIdx={pageIdx}
+                    imageName={page.image}
+                    width={page.width || 800}
+                    height={page.height || 1200}
+                    isInverted={isInverted}
+                  />
+                  <PageOverlay
+                    pageData={page}
+                    pageIdx={pageIdx}
+                    imgW={page.width || 800}
+                    imgH={page.height || 1200}
+                    scale={1}
+                    isDebugMode={isDebugMode}
+                    isCtrlDown={isCtrlDown}
+                    isShiftDown={isShiftDown}
+                    isRightMouseDown={isRightMouseDown}
+                    wordStatuses={wordStatuses}
+                    activePopups={activePopups}
+                    handleWordClick={handleWordClick}
+                    handleClosePopup={handleClosePopup}
+                    bringPopupToFront={bringPopupToFront}
+                    getWordColorClass={getWordColorClass}
+                    mangaId={mangaId}
+                    isDrawMode={isDrawMode}
+                    strokes={strokes}
+                    activeStroke={activeStroke}
+                    activeNoteColor={activeNoteColor}
+                  />
+                  <div className="absolute inset-0 pointer-events-none">
+                    <StickyNoteOverlay
+                      notes={stickyNotes}
+                      pageIdx={pageIdx}
+                      scale={1}
+                      onUpdateNote={onUpdateNote}
+                      onDeleteNote={onDeleteNote}
+                      isDraggingCanvas={false}
+                      isDrawMode={isDrawMode || isMaskMode}
+                    />
+                  </div>
+                </>
+              ) : (
                 <div 
-                  key={pageIdx}
-                  className="relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
-                  style={{ 
-                    width: 'auto',
-                    height: 'auto',
-                  }}
+                  className="flex items-center justify-center text-gray-700 bg-gray-900"
+                  style={{ width: `${page.width || 800}px`, height: `${page.height || 1200}px` }}
                 >
-                  {isVisible ? (
-                    <>
-                      <VirtualPage 
-                        pageIdx={pageIdx}
-                        imageName={page.image}
-                        width={page.width || 800}
-                        height={page.height || 1200}
-                        isInverted={isInverted}
-                      />
-                      <PageOverlay
-                        pageData={page}
-                        pageIdx={pageIdx}
-                        imgW={page.width || 800}
-                        imgH={page.height || 1200}
-                        scale={1} // Scroller uses native size/CSS scaling
-                        isDebugMode={isDebugMode}
-                        isCtrlDown={isCtrlDown}
-                        isShiftDown={isShiftDown}
-                        isRightMouseDown={isRightMouseDown}
-                        wordStatuses={wordStatuses}
-                        activePopups={activePopups}
-                        handleWordClick={handleWordClick}
-                        handleClosePopup={handleClosePopup}
-                        bringPopupToFront={bringPopupToFront}
-                        getWordColorClass={getWordColorClass}
-                        mangaId={mangaId}
-                        isDrawMode={isDrawMode}
-                        strokes={strokes}
-                        activeStroke={activeStroke}
-                        activeNoteColor={activeNoteColor}
-                      />
-                      <div className="absolute inset-0 pointer-events-none">
-                        <StickyNoteOverlay
-                          notes={stickyNotes}
-                          pageIdx={pageIdx}
-                          scale={1}
-                          onUpdateNote={onUpdateNote}
-                          onDeleteNote={onDeleteNote}
-                          isDraggingCanvas={false}
-                          isDrawMode={isDrawMode || isMaskMode}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-700">
-                      Loading Page {pageIdx + 1}...
-                    </div>
-                  )}
+                  Loading Page {pageIdx + 1}...
                 </div>
-              );
-            })}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
