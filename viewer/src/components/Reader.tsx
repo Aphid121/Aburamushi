@@ -35,52 +35,6 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
 
   const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
 
-  // We need to track the cursor position globally so it works in infinite modes too
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isDrawMode || isEraserMode || isMaskMode) {
-        setCursorPos({ x: e.clientX, y: e.clientY });
-      } else {
-        setCursorPos(null);
-      }
-    };
-
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
-  }, [isDrawMode, isEraserMode, isMaskMode]);
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      if ((window as any).electronAPI) {
-        const settings = await (window as any).electronAPI.getSettings();
-        if (settings['infinite_page_spacing']) {
-          setPageSpacing(parseInt(settings['infinite_page_spacing'], 10));
-        }
-      }
-    };
-    loadSettings();
-  }, []);
-    const [viewMode, setViewMode] = useState<'single' | 'dual' | 'infinite_vertical' | 'infinite_horizontal' | 'infinite_vertical_dual' | 'infinite_horizontal_rtl'>('single');
-  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
-  const [isInverted, setIsInverted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Zoom & Pan State
-  const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  
-  const [zoomToast, setZoomToast] = useState<number | null>(null);
-  const toastTimeoutRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Modifiers & Debug
-  const [isShiftDown, setIsShiftDown] = useState(false);
-  const [isCtrlDown, setIsCtrlDown] = useState(false);
-  const [isRightMouseDown, setIsRightMouseDown] = useState(false);
-  const [isDebugMode, setIsDebugMode] = useState(false);
-
   // Analysis Mode State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(384); // Default 96 * 4 = 384px
@@ -111,6 +65,53 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   const [analysisChatHistory, setAnalysisChatHistory] = useState<{role: string, content: string}[]>([]);
   const [analysisInput, setAnalysisInput] = useState("");
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // We need to track the cursor position globally so it works in infinite modes too
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isDrawMode || isEraserMode || isMaskMode) {
+        setCursorPos({ x: e.clientX, y: e.clientY });
+      } else {
+        setCursorPos(null);
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [isDrawMode, isEraserMode, isMaskMode]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      if ((window as any).electronAPI) {
+        const settings = await (window as any).electronAPI.getSettings();
+        if (settings['infinite_page_spacing']) {
+          setPageSpacing(parseInt(settings['infinite_page_spacing'], 10));
+        }
+      }
+    };
+    loadSettings();
+  }, []);
+
+  const [viewMode, setViewMode] = useState<'single' | 'dual' | 'infinite_vertical' | 'infinite_horizontal' | 'infinite_vertical_dual' | 'infinite_horizontal_rtl'>('single');
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
+  const [isInverted, setIsInverted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Zoom & Pan State
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  const [zoomToast, setZoomToast] = useState<number | null>(null);
+  const toastTimeoutRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Modifiers & Debug
+  const [isShiftDown, setIsShiftDown] = useState(false);
+  const [isCtrlDown, setIsCtrlDown] = useState(false);
+  const [isRightMouseDown, setIsRightMouseDown] = useState(false);
+  const [isDebugMode, setIsDebugMode] = useState(false);
 
   // Auto-resize textarea
   useEffect(() => {
