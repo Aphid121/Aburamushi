@@ -92,7 +92,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
     loadSettings();
   }, []);
 
-  const [viewMode, setViewMode] = useState<'single' | 'dual' | 'infinite_vertical' | 'infinite_horizontal' | 'infinite_vertical_dual' | 'infinite_horizontal_rtl'>('single');
+  const [viewMode, setViewMode] = useState<'single' | 'dual' | 'scroller_vertical' | 'scroller_horizontal' | 'scroller_vertical_dual' | 'scroller_horizontal_rtl'>('single');
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [isInverted, setIsInverted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -680,15 +680,42 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       let targetPageIdx = -1;
       let imgElement = null;
       
-      // Check all visible images
-      const images = document.querySelectorAll('img[id^="manga-img-"]');
-      for (const img of Array.from(images)) {
-        const rect = img.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right &&
-            e.clientY >= rect.top && e.clientY <= rect.bottom) {
-          targetPageIdx = parseInt(img.id.replace('manga-img-', ''), 10);
-          imgElement = img;
-          break;
+      if (viewMode.startsWith('scroller')) {
+        let minDistance = Infinity;
+        const images = document.querySelectorAll('img[id^="manga-img-"]');
+        for (const img of Array.from(images)) {
+          const rect = img.getBoundingClientRect();
+          
+          // Check if we clicked directly inside the image
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            targetPageIdx = parseInt(img.id.replace('manga-img-', ''), 10);
+            imgElement = img;
+            break;
+          }
+          
+          // Otherwise, calculate distance to the center of the image
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+          
+          if (dist < minDistance) {
+            minDistance = dist;
+            targetPageIdx = parseInt(img.id.replace('manga-img-', ''), 10);
+            imgElement = img;
+          }
+        }
+      } else {
+        // Check all visible images
+        const images = document.querySelectorAll('img[id^="manga-img-"]');
+        for (const img of Array.from(images)) {
+          const rect = img.getBoundingClientRect();
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            targetPageIdx = parseInt(img.id.replace('manga-img-', ''), 10);
+            imgElement = img;
+            break;
+          }
         }
       }
 
@@ -1091,7 +1118,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
         if (el) targetImgW = el.getBoundingClientRect().width;
       }
     } else {
-      // For infinite modes, we can try to find the first visible page element
+      // For scroller modes, we can try to find the first visible page element
       const firstImg = document.querySelector('img[id^="manga-img-"]') as HTMLImageElement;
       if (firstImg) {
         targetImgW = firstImg.getBoundingClientRect().width;
@@ -1198,7 +1225,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           targetImg = displayImages[0];
           imgElement = document.getElementById(`manga-img-0`);
         } else {
-          // For infinite modes, use currentPage
+          // For scroller modes, use currentPage
           const activePageIdx = currentPage;
           targetImg = { pageIdx: activePageIdx };
           imgElement = document.getElementById(`manga-img-${activePageIdx}`);
@@ -1273,8 +1300,8 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           style={{
             left: cursorPos.x,
             top: cursorPos.y,
-            width: brushSize * scale,
-            height: brushSize * scale,
+            width: brushSize * (viewMode.startsWith('scroller') ? 1 : scale),
+            height: brushSize * (viewMode.startsWith('scroller') ? 1 : scale),
             transform: 'translate(-50%, -50%)',
             border: `1px ${isEraserMode ? 'dashed' : 'solid'} white`,
             backgroundColor: isMaskMode ? 'rgba(255, 255, 255, 0.2)' : 'transparent'
