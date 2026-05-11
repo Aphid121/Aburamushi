@@ -509,7 +509,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   useEffect(() => {
     const handleWheelEvent = (e: WheelEvent) => {
       // Only handle wheel events if we are hovering over the reader container
-      if (viewMode.startsWith('infinite')) return;
+      if (viewMode.startsWith('scroller')) return;
       if (containerRef.current && containerRef.current.contains(e.target as Node)) {
         // We removed the isDrawMode check here so you can zoom while drawing!
         e.preventDefault();
