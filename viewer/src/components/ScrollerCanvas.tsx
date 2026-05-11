@@ -129,7 +129,7 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
   return (
     <div 
       ref={scrollContainerRef}
-      className="w-full h-full overflow-y-auto custom-scrollbar bg-gray-900"
+      className="w-full h-full overflow-y-auto custom-scrollbar bg-gray-950"
       onScroll={handleScroll}
     >
       <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: '0' }}>

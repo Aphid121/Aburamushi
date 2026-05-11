@@ -1393,7 +1393,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
       {/* Main Image Area */}
       <div 
         ref={containerRef}
-        className={`flex-1 relative overflow-hidden bg-gray-900 select-none z-0 ${(isDrawMode || isEraserMode || isMaskMode) ? 'cursor-none' : 'cursor-crosshair'}`}
+        className={`flex-1 relative overflow-hidden bg-gray-950 select-none z-0 ${(isDrawMode || isEraserMode || isMaskMode) ? 'cursor-none' : 'cursor-crosshair'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
