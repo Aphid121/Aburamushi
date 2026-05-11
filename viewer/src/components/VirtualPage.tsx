@@ -104,7 +104,7 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
           ref={imgRef}
           src={url} 
           alt={`Page ${pageIdx + 1}`} 
-          className={`w-full h-full block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
+          className={`w-auto h-auto max-w-full block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
           style={{ imageRendering: 'pixelated' }}
           draggable={false}
         />
