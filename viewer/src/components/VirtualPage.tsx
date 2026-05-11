@@ -90,7 +90,7 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
     <div 
       ref={containerRef}
       className="relative bg-gray-900 shrink-0"
-      style={{ width: `${width}px`, height: `${height}px` }}
+      style={url ? undefined : { width: `${width}px`, height: `${height}px` }}
     >
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm">Error</div>

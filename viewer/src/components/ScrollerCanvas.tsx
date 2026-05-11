@@ -141,10 +141,6 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
               key={pageIdx}
               data-page-idx={pageIdx}
               className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
-              style={{ 
-                width: 'auto',
-                height: 'auto',
-              }}
             >
               {isVisible ? (
                 <>
