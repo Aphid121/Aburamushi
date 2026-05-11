@@ -155,16 +155,24 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
 
     // 3. Calculate the scale factor to fit the viewport
     const availableH = viewportSize.height - spacing;
-    // In dual mode, the available width is the full viewport width.
-    // In single mode, the available width is also the full viewport width.
-    // We don't divide by 2 here because finalW represents the width of a SINGLE page,
-    // and we want to make sure that even if there's a spread (which is 2 * finalW), it fits.
-    // So we calculate the scale based on the maximum possible width a row could take.
-    const maxRowWidth = isDual ? (minW * 2 + spacing) : minW;
+    
+    // The maximum width a row can take is either two pages side-by-side (in dual mode)
+    // OR a single spread (which is treated as two pages wide in both single and dual mode).
+    // Therefore, the maxRowWidth is ALWAYS (minW * 2 + spacing) if there are any spreads,
+    // or if we are in dual mode.
+    let hasSpreads = false;
+    pages.forEach(p => {
+      if ((p.width || 800) > (p.height || 1200)) hasSpreads = true;
+    });
+    
+    const maxRowWidth = (isDual || hasSpreads) ? (minW * 2 + spacing) : minW;
     
     const scaleH = availableH / maxH;
     const scaleW = viewportSize.width / maxRowWidth;
     
+    // If we are in dual mode, we MUST ensure that two pages side-by-side fit in the viewport width.
+    // If we are in single mode, we MUST ensure that a spread (which is 2x wide) fits in the viewport width.
+    // The maxRowWidth logic above handles this, but we need to make sure we don't accidentally scale up too much.
     const finalScale = Math.min(scaleH, scaleW);
     
     return minW * finalScale;
@@ -240,6 +248,9 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
               const pageH = page.height || 1200;
               
               const isSpread = row.isSpread;
+              // In dual mode, a spread takes up the width of two pages PLUS the spacing between them.
+              // In single mode, a spread also takes up the width of two pages PLUS the spacing, 
+              // because we want it to be twice as wide as a normal page to maintain the correct visual scale.
               const targetW = isSpread ? (finalW * 2 + spacing) : finalW;
               const finalH = pageH * (targetW / pageW);
 
