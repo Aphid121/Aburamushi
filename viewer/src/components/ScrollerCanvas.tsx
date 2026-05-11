@@ -129,10 +129,10 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
   return (
     <div 
       ref={scrollContainerRef}
-      className="w-full h-full overflow-y-auto custom-scrollbar bg-gray-950"
+      className="w-full h-full overflow-y-auto custom-scrollbar bg-gray-900"
       onScroll={handleScroll}
     >
-      <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: '20px 0' }}>
+      <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: '0' }}>
         {rows.map((row) => (
           <div 
             key={row.startIndex}
@@ -149,7 +149,8 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
                   key={pageIdx}
                   className="relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
                   style={{ 
-                    width: isDual ? '45%' : 'min(90%, 1200px)',
+                    width: isDual ? '45%' : '100%',
+                    maxWidth: isDual ? 'none' : '1200px',
                     aspectRatio: `${page.width || 800} / ${page.height || 1200}`,
                   }}
                 >
