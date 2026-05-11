@@ -35,6 +35,20 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
 
   const [cursorPos, setCursorPos] = useState<{x: number, y: number} | null>(null);
 
+  // We need to track the cursor position globally so it works in infinite modes too
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isDrawMode || isEraserMode || isMaskMode) {
+        setCursorPos({ x: e.clientX, y: e.clientY });
+      } else {
+        setCursorPos(null);
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [isDrawMode, isEraserMode, isMaskMode]);
+
   useEffect(() => {
     const loadSettings = async () => {
       if ((window as any).electronAPI) {
@@ -703,8 +717,6 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    setCursorPos({ x: e.clientX, y: e.clientY });
-
     if (isEraserMode && e.buttons === 1) {
       handleEraser(e);
       return;
@@ -1349,10 +1361,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={(e) => {
-          setCursorPos(null);
-          handleMouseUp(e);
-        }}
+        onMouseLeave={handleMouseUp}
         onContextMenu={handleContextMenu}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
