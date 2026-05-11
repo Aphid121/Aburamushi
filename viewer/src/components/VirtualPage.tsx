@@ -89,20 +89,22 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
   return (
     <div 
       ref={containerRef}
-      className="relative h-full w-full flex items-center justify-center bg-gray-900 shrink-0"
+      className="relative w-full bg-gray-900 shrink-0"
       style={{ aspectRatio: `${width} / ${height}` }}
     >
       {error ? (
-        <div className="text-red-500 text-sm">Error</div>
+        <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm">Error</div>
       ) : !url ? (
-        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+        </div>
       ) : (
         <img 
           id={`manga-img-${pageIdx}`}
           ref={imgRef}
           src={url} 
           alt={`Page ${pageIdx + 1}`} 
-          className={`absolute inset-0 w-full h-full object-contain transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
+          className={`w-full h-auto block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
           style={{ imageRendering: 'pixelated' }}
           draggable={false}
         />

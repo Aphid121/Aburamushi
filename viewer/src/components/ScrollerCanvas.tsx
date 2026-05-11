@@ -149,9 +149,9 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
                   key={pageIdx}
                   className="relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
                   style={{ 
-                    height: '100vh',
-                    width: 'auto',
-                    aspectRatio: `${page.width || 800} / ${page.height || 1200}`,
+                    width: '100%',
+                    maxWidth: isDual ? `calc(50vw - ${spacing / 2}px)` : '100vw',
+                    height: 'auto',
                   }}
                 >
                   {isVisible ? (
