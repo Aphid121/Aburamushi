@@ -90,7 +90,7 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
     <div 
       ref={containerRef}
       className="relative bg-gray-900 shrink-0"
-      style={url ? undefined : { width: `${width}px`, height: `${height}px` }}
+      style={url ? undefined : { width: `${width}px`, height: 'auto', aspectRatio: `${width} / ${height}` }}
     >
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm">Error</div>
@@ -104,8 +104,12 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
           ref={imgRef}
           src={url} 
           alt={`Page ${pageIdx + 1}`} 
-          className={`w-auto h-auto max-w-full block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
-          style={{ imageRendering: 'pixelated' }}
+          className={`block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
+          style={{ 
+            imageRendering: 'pixelated',
+            width: `${width}px`,
+            height: 'auto',
+          }}
           draggable={false}
         />
       )}

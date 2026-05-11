@@ -106,6 +106,45 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
     window.dispatchEvent(new CustomEvent('scroller-scroll'));
   };
 
+  const [viewportSize, setViewportSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  useEffect(() => {
+    const handleResize = () => setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const finalW = useMemo(() => {
+    if (!pages || pages.length === 0) return 800;
+    
+    // 1. Find the smallest width
+    let minW = Infinity;
+    pages.forEach(p => {
+      const w = p.width || 800;
+      if (w < minW) minW = w;
+    });
+
+    // 2. Find the tallest height IF all pages were scaled to minW
+    let maxH = 0;
+    pages.forEach(p => {
+      const w = p.width || 800;
+      const h = p.height || 1200;
+      const scaledH = h * (minW / w);
+      if (scaledH > maxH) maxH = scaledH;
+    });
+
+    // 3. Calculate the scale factor to fit the viewport
+    const availableH = viewportSize.height - spacing;
+    const availableW = isDual ? (viewportSize.width / 2 - spacing / 2) : viewportSize.width;
+    
+    const scaleH = availableH / maxH;
+    const scaleW = availableW / minW;
+    
+    const finalScale = Math.min(scaleH, scaleW);
+    
+    return minW * finalScale;
+  }, [pages, viewportSize, spacing, isDual]);
+
   // Initial scroll to current page
   useEffect(() => {
     const target = document.querySelector(`[data-page-idx="${currentPage}"]`);
@@ -136,27 +175,30 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
         {pages.map((page, pageIdx) => {
           const isVisible = visibleIndices.has(pageIdx);
           
-          return (
-            <div 
-              key={pageIdx}
-              data-page-idx={pageIdx}
-              className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
-            >
-              {isVisible ? (
-                <>
-                  <VirtualPage 
-                    pageIdx={pageIdx}
-                    imageName={page.image}
-                    width={page.width || 800}
-                    height={page.height || 1200}
-                    isInverted={isInverted}
-                  />
-                  <PageOverlay
-                    pageData={page}
-                    pageIdx={pageIdx}
-                    imgW={page.width || 800}
-                    imgH={page.height || 1200}
-                    scale={1}
+              const pageW = page.width || 800;
+              const pageH = page.height || 1200;
+
+              return (
+                <div 
+                  key={pageIdx}
+                  data-page-idx={pageIdx}
+                  className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
+                  style={{ width: `${finalW}px`, height: 'auto' }}
+                >
+                  {isVisible ? (
+                      <VirtualPage 
+                        pageIdx={pageIdx}
+                        imageName={page.image}
+                        width={finalW}
+                        height={pageH}
+                        isInverted={isInverted}
+                      />
+                      <PageOverlay
+                        pageData={page}
+                        pageIdx={pageIdx}
+                        imgW={pageW}
+                        imgH={pageH}
+                        scale={finalW / pageW}
                     isDebugMode={isDebugMode}
                     isCtrlDown={isCtrlDown}
                     isShiftDown={isShiftDown}
@@ -177,7 +219,7 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
                     <StickyNoteOverlay
                       notes={stickyNotes}
                       pageIdx={pageIdx}
-                      scale={1}
+                      scale={finalW / pageW}
                       onUpdateNote={onUpdateNote}
                       onDeleteNote={onDeleteNote}
                       isDraggingCanvas={false}
@@ -188,7 +230,7 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
               ) : (
                 <div 
                   className="flex items-center justify-center text-gray-700 bg-gray-900"
-                  style={{ width: `${page.width || 800}px`, height: `${page.height || 1200}px` }}
+                  style={{ width: `${finalW}px`, height: 'auto', aspectRatio: `${pageW} / ${pageH}` }}
                 >
                   Loading Page {pageIdx + 1}...
                 </div>
