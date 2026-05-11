@@ -155,10 +155,15 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
 
     // 3. Calculate the scale factor to fit the viewport
     const availableH = viewportSize.height - spacing;
-    const availableW = isDual ? (viewportSize.width / 2 - spacing / 2) : viewportSize.width;
+    // In dual mode, the available width is the full viewport width.
+    // In single mode, the available width is also the full viewport width.
+    // We don't divide by 2 here because finalW represents the width of a SINGLE page,
+    // and we want to make sure that even if there's a spread (which is 2 * finalW), it fits.
+    // So we calculate the scale based on the maximum possible width a row could take.
+    const maxRowWidth = isDual ? (minW * 2 + spacing) : minW;
     
     const scaleH = availableH / maxH;
-    const scaleW = availableW / minW;
+    const scaleW = viewportSize.width / maxRowWidth;
     
     const finalScale = Math.min(scaleH, scaleW);
     
@@ -170,7 +175,10 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
     let i = 0;
     while (i < pages.length) {
       const p1 = pages[i];
-      const isSpread1 = (p1.width || 800) > (p1.height || 1200);
+      const w1 = p1.width || 800;
+      const h1 = p1.height || 1200;
+      // A page is a spread if its width is greater than its height
+      const isSpread1 = w1 > h1;
 
       if (isSpread1) {
         // Spreads always get their own row, even in single mode
@@ -179,7 +187,9 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       } else {
         if (isDual && i + 1 < pages.length) {
           const p2 = pages[i + 1];
-          const isSpread2 = (p2.width || 800) > (p2.height || 1200);
+          const w2 = p2.width || 800;
+          const h2 = p2.height || 1200;
+          const isSpread2 = w2 > h2;
           if (!isSpread2) {
             // Two normal pages side-by-side
             r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
