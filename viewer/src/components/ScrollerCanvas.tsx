@@ -187,37 +187,35 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       const h1 = p1.height || 1200;
       const isSpread1 = w1 > h1;
 
-      if (isDual) {
-        if (isSpread1) {
-          // Spreads take up both columns
-          r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
-          i += 1;
-        } else {
-          // Normal page in column 1
-          if (i + 1 < pages.length) {
-            const p2 = pages[i + 1];
-            const w2 = p2.width || 800;
-            const h2 = p2.height || 1200;
-            const isSpread2 = w2 > h2;
-            
-            if (!isSpread2) {
-              // Two normal pages side-by-side
-              r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
-              i += 2;
-            } else {
-              // Next page is a spread, so this normal page gets its own row (with an empty slot next to it)
-              r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
-              i += 1;
-            }
+      if (isSpread1) {
+        // Spreads ALWAYS get their own row, regardless of single or dual mode
+        r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
+        i += 1;
+      } else if (isDual) {
+        // Normal page in column 1
+        if (i + 1 < pages.length) {
+          const p2 = pages[i + 1];
+          const w2 = p2.width || 800;
+          const h2 = p2.height || 1200;
+          const isSpread2 = w2 > h2;
+          
+          if (!isSpread2) {
+            // Two normal pages side-by-side
+            r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
+            i += 2;
           } else {
-            // Last page is normal, gets its own row
+            // Next page is a spread, so this normal page gets its own row (with an empty slot next to it)
             r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
             i += 1;
           }
+        } else {
+          // Last page is normal, gets its own row
+          r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
+          i += 1;
         }
       } else {
-        // Single mode: every page gets its own row, but spreads are marked so they render 2x wide
-        r.push({ isSpread: isSpread1, pages: [{ ...p1, originalIndex: i }] });
+        // Single mode: every normal page gets its own row
+        r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }] });
         i += 1;
       }
     }
