@@ -9,8 +9,7 @@ import numpy as np
 from pathlib import Path
 from PIL import ImageFont
 from sudachipy import dictionary, tokenizer
-import requests
-import base64
+from manga_ocr import MangaOcr
 
 import sys
 import torch
@@ -20,57 +19,13 @@ from utils.textmask import REFINEMASK_ANNOTATION
 
 class MangaOCRExtractor:
     def __init__(self):
-        click.echo("[*] Using KCPP VLM...")
+        click.echo("[*] Loading MangaOCR...")
+        self.mocr = MangaOcr()
 
     def extract_text(self, image_path):
         try:
-            with open(image_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            
-            payload = {
-                "max_context_length": 16384,
-                "max_length": 1024,
-                "temperature": 0.0,
-                "images": [encoded_string],
-                "prompt": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n<|image_1|>\nExtract the Japanese text from this image. EXPLICITLY IGNORE furigana (ruby characters). Output ONLY the text as written verbatim, do not add quotation marks or any other formatting.<|im_end|>\n<|im_start|>assistant\n"
-            }
-            
-            response = requests.post("http://localhost:5001/api/v1/generate", json=payload)
-            response.raise_for_status()
-            res = response.json()['results'][0]['text']
-            click.echo(f"    [VLM Response] {res}")
-            
-            try:
-                # Try to parse as JSON first
-                parsed = json.loads(res)
-                if isinstance(parsed, list) and len(parsed) > 0:
-                    text = parsed[0].get("text_content", "")
-                elif isinstance(parsed, dict):
-                    text = parsed.get("text_content", parsed.get("text", ""))
-                else:
-                    text = res
-            except json.JSONDecodeError:
-                # If it's wrapped in markdown code blocks, try to extract it
-                if "```json" in res:
-                    try:
-                        json_str = res.split("```json")[1].split("```")[0].strip()
-                        parsed = json.loads(json_str)
-                        if isinstance(parsed, list) and len(parsed) > 0:
-                            text = parsed[0].get("text_content", "")
-                        elif isinstance(parsed, dict):
-                            text = parsed.get("text_content", parsed.get("text", ""))
-                        else:
-                            text = res
-                    except:
-                        text = res
-                else:
-                    text = res
-                    
-            # Clean up <think> tags from Qwen models
-            if "<think>" in text and "</think>" in text:
-                text = text.split("</think>")[-1].strip()
-                
-            return text.replace(' ', '').replace('\n', '').replace('　', '')
+            res = self.mocr(str(image_path))
+            return res.replace(' ', '').replace('\n', '').replace('　', '')
         except Exception as e:
             click.echo(f"    [!] Error extracting text: {e}")
             return ""

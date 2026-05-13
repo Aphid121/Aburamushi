@@ -20,6 +20,7 @@ interface DisplayImage {
   pageIdx: number;
 }
 
+import DictionaryPopup from './DictionaryPopup';
 import ErrorBoundary from './ErrorBoundary';
 
 const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
@@ -387,7 +388,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
     let step = 1;
     if (viewMode === 'dual') {
       step = 2;
-    } else if (viewMode === 'scroller_vertical_dual') {
+    } else if (viewMode === 'scroller_dual') {
       const page1 = mangaData.pages[currentPage];
       const isSpread1 = (page1.width || 800) > (page1.height || 1200);
       if (!isSpread1 && currentPage + 1 < mangaData.pages.length) {
@@ -1085,6 +1086,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
   };
 
   const handleWordClick = (word: any, contextSentence: string, relX: number, relY: number, relW: number, relH: number, imgIdx: number, bubbleBox: any, direction: string, e: React.MouseEvent) => {
+    console.log("Word clicked!", word.base_form, "imgIdx:", imgIdx);
     e.stopPropagation();
     
     // Check if this exact word is already open
@@ -1225,8 +1227,91 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
             }
           }
         }
-      }
+      } else if (viewMode.startsWith('scroller')) {
+        // Find the closest page container to the drop point
+        let minDistance = Infinity;
+        const containers = document.querySelectorAll('div[id^="scroller-page-"]');
+        for (const container of Array.from(containers)) {
+          const rect = container.getBoundingClientRect();
+          
+          // If we dropped directly inside a container's bounds, use it immediately
+          if (e.clientX >= rect.left && e.clientX <= rect.right &&
+              e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            imgElement = container;
+            break;
+          }
+          
+          // Otherwise, find the closest one
+          const imgCenterX = rect.left + rect.width / 2;
+          const imgCenterY = rect.top + rect.height / 2;
+          const distance = Math.sqrt(Math.pow(e.clientX - imgCenterX, 2) + Math.pow(e.clientY - imgCenterY, 2));
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            imgElement = container;
+          }
+        }
+        
+        if (imgElement) {
+          // Extract the pageIdx from the ID (e.g., "scroller-page-5" or "scroller-page-5-left")
+          const idParts = imgElement.id.split('-');
+          const pageIdx = parseInt(idParts[2], 10);
+          targetImg = { pageIdx }; // Mock the targetImg object just enough for the logic below
+          
+          // In scroller mode, the image is scaled to fit the column width.
+          // We need to calculate the actual scale factor of the image relative to its original size
+          // so the sticky note can be placed at the correct relative coordinates.
+          const originalW = mangaData.pages[pageIdx].width || 800;
+          const originalH = mangaData.pages[pageIdx].height || 1200;
+          const displayedW = imgElement.getBoundingClientRect().width;
+          
+          // We temporarily override the global scale for this drop operation
+          // because the scroller mode doesn't use the global scale state for its pages.
+          const isSpreadHalf = imgElement.id.endsWith('-left') || imgElement.id.endsWith('-right');
+          const scrollerScale = displayedW / (isSpreadHalf ? originalW / 2 : originalW);
+          
+          const rect = imgElement.getBoundingClientRect();
+          
+          // If this is the right half of a spread, we need to offset the X coordinate
+          // because the image is shifted to the left by its full width.
+          let offsetX = 0;
+          if (imgElement.id.endsWith('-right')) {
+            offsetX = originalW / 2;
+          }
+          
+          const x = (e.clientX - rect.left) / scrollerScale + offsetX;
+          const y = (e.clientY - rect.top) / scrollerScale;
+          
+          const actualWidthPct = (data.width / rect.width) * 100;
+          const actualHeightPct = (data.height / rect.height) * 100;
 
+          // If this is a spread half, the rect.width is only half the original image width.
+          // We need to adjust the width percentage so it's relative to the FULL original image width,
+          // because that's how StickyNoteOverlay renders it.
+          let finalWidthPct = actualWidthPct;
+          if (isSpreadHalf) {
+            finalWidthPct = actualWidthPct / 2;
+          }
+
+          const newNote: StickyNoteData = {
+            id: `note_${Date.now()}`,
+            manga_id: mangaId,
+            page_idx: pageIdx,
+            x: (x / originalW) * 100,
+            y: (y / originalH) * 100,
+            local_x: (x / originalW) * 100,
+            local_y: (y / originalH) * 100,
+            width: finalWidthPct,
+            height: actualHeightPct,
+            color: data.color,
+            content: ''
+          };
+
+          console.log("Dropping note on scroller:", newNote);
+          handleUpdateNote(newNote);
+          return; // Early return since we handled the scroller logic completely here
+        }
+      }
       // Fallback: If we didn't drop directly on an image, use the "active" page
       if (!targetImg) {
         if (viewMode === 'single' || viewMode === 'dual') {
@@ -1236,7 +1321,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           // For scroller modes, use currentPage
           const activePageIdx = currentPage;
           targetImg = { pageIdx: activePageIdx };
-          imgElement = document.getElementById(`manga-img-${activePageIdx}`);
+          imgElement = document.getElementById(`manga-img-${activePageIdx}`) || document.getElementById(`manga-img-${activePageIdx}-left`);
         }
       }
 
@@ -1258,6 +1343,8 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
           id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           manga_id: mangaId,
           page_idx: targetImg.pageIdx,
+          x: finalPctX,
+          y: finalPctY,
           local_x: finalPctX, // No longer clamping to 0-100
           local_y: finalPctY, // No longer clamping to 0-100
           width: data.preset.w,
@@ -1457,21 +1544,21 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
               >
                 <div 
                   className={`flex ${viewMode === 'dual' ? 'flex-row-reverse' : 'flex-row'} items-center justify-center`}
-                  style={{ gap: `${pageSpacing}px` }}
+                  style={{ gap: '0px' }}
                 >
                   {displayImages.map((img, idx) => (
                     <div 
                       key={idx} 
                       className="relative inline-block"
                       style={{
-                        marginLeft: viewMode === 'dual' && pageSpacing === 0 && idx > 0 ? '-1px' : '0'
+                        marginLeft: viewMode === 'dual' && pageSpacing === 0 && idx > 0 ? '0' : '0'
                       }}
                     >
                       <img 
                         id={`manga-img-${idx}`}
                         src={img.url} 
                         alt={`Page ${img.pageIdx + 1}`} 
-                        className={`max-w-full h-auto object-contain shadow-2xl ring-1 ring-gray-800 transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
+                        className={`max-w-full h-auto object-contain transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
                         style={{ maxHeight: isFullscreen ? '100vh' : 'calc(100vh - 60px)' }}
                         draggable={false}
                       />
@@ -1514,14 +1601,14 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
               >
                 <div 
                   className={`flex ${viewMode === 'dual' ? 'flex-row-reverse' : 'flex-row'} items-center justify-center`}
-                  style={{ gap: `${pageSpacing}px` }}
+                  style={{ gap: '0px' }}
                 >
                   {displayImages.map((img, idx) => (
                     <div 
                       key={`overlay-${idx}`} 
                       className="relative inline-block"
                       style={{
-                        marginLeft: viewMode === 'dual' && pageSpacing === 0 && idx > 0 ? '-1px' : '0'
+                        marginLeft: viewMode === 'dual' && pageSpacing === 0 && idx > 0 ? '0' : '0'
                       }}
                     >
                       {/* Invisible image to force exact same layout and sizing as the base layer */}
@@ -1534,7 +1621,7 @@ const Reader: React.FC<ReaderProps> = ({ mangaId }) => {
                       />
 
                       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                        <div style={{ pointerEvents: 'auto', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
+                        <div style={{ pointerEvents: 'none', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}>
                           <StickyNoteOverlay
                             notes={stickyNotes}
                             pageIdx={img.pageIdx}

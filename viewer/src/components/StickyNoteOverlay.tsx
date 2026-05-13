@@ -39,6 +39,7 @@ interface StickyNoteOverlayProps {
   isDrawMode?: boolean;
   isMaskMode?: boolean;
   isPageCanvas?: boolean;
+  isSpreadHalf?: 'left' | 'right';
 }
 
 const StickyNoteOverlay: React.FC<StickyNoteOverlayProps> = ({
@@ -50,31 +51,88 @@ const StickyNoteOverlay: React.FC<StickyNoteOverlayProps> = ({
   isDraggingCanvas,
   isDrawMode = false,
   isMaskMode = false,
-  isPageCanvas = false
+  isPageCanvas = false,
+  isSpreadHalf
 }) => {
   const pageNotes = notes.filter(n => n.page_idx === pageIdx);
   
   if (pageNotes.length === 0) return null;
 
   return (
-    <div className={`absolute inset-0 w-full h-full pointer-events-none ${isPageCanvas ? 'z-10' : 'z-[60]'}`} style={{ containerType: 'inline-size' }}>
-      {pageNotes.map(note => (
-        <StickyNote
-          key={note.id}
-          note={note}
-          scale={scale}
-          onUpdate={onUpdateNote}
-          onDelete={() => onDeleteNote(note.id)}
-          isDraggingCanvas={isDraggingCanvas}
-          isDrawMode={isDrawMode}
-          isMaskMode={isMaskMode}
-          isPageCanvas={isPageCanvas}
-        />
-      ))}
+    <div className={`absolute inset-0 w-full h-full pointer-events-none`} style={{ containerType: 'inline-size', zIndex: 9999, overflow: 'visible' }}>
+      {pageNotes.map(note => {
+        // If this is a spread half, we need to adjust the note's X position and width
+        // because the note's coordinates are relative to the FULL original image width,
+        // but this overlay is only rendering over HALF the image.
+        let adjustedNote = { ...note };
+        // Map the database x/y to the local_x/local_y that the component expects
+        // Fallback to local_x/local_y for older notes that don't have x/y saved
+        adjustedNote.local_x = note.x !== undefined ? note.x : note.local_x;
+        adjustedNote.local_y = note.y !== undefined ? note.y : note.local_y;
+
+        // Also ensure x and y are set for the spread math below
+        const base_x = note.x !== undefined ? note.x : note.local_x;
+        const base_y = note.y !== undefined ? note.y : note.local_y;
+
+        if (isSpreadHalf === 'left') {
+          // Left half: only show notes that are on the left side (x < 50%)
+          if (base_x >= 50) return null;
+          // Double the width and X coordinate because the container is half the size
+          adjustedNote.local_x = base_x * 2;
+          adjustedNote.width = note.width * 2;
+        } else if (isSpreadHalf === 'right') {
+          // Right half: only show notes that are on the right side (x >= 50%)
+          if (base_x < 50) return null;
+          // Shift X coordinate to the left by 50%, then double it
+          adjustedNote.local_x = (base_x - 50) * 2;
+          adjustedNote.width = note.width * 2;
+        }
+
+        // Ensure the ID is unique for the spread half so React doesn't get confused
+        if (isSpreadHalf) {
+          adjustedNote.id = `${note.id}-${isSpreadHalf}`;
+        }
+
+        console.log("Rendering note:", note.id, "on page:", pageIdx, "isSpreadHalf:", isSpreadHalf, "adjusted:", adjustedNote);
+        return (
+          <StickyNote
+            key={adjustedNote.id}
+            note={adjustedNote}
+            scale={scale}
+            onUpdate={(updatedNote) => {
+              // When updating, we need to reverse the math we did above
+              // so the note saves its coordinates relative to the FULL image again!
+              let finalNote = { ...updatedNote };
+              
+              // Map local_x/local_y back to x/y for the database
+              finalNote.x = updatedNote.local_x;
+              finalNote.y = updatedNote.local_y;
+              
+              // Strip the suffix from the ID before saving
+              if (isSpreadHalf) {
+                finalNote.id = finalNote.id.replace(`-${isSpreadHalf}`, '');
+              }
+
+              if (isSpreadHalf === 'left') {
+                finalNote.x = updatedNote.local_x / 2;
+                finalNote.width = updatedNote.width / 2;
+              } else if (isSpreadHalf === 'right') {
+                finalNote.x = (updatedNote.local_x / 2) + 50;
+                finalNote.width = updatedNote.width / 2;
+              }
+              onUpdateNote(finalNote);
+            }}
+            onDelete={() => onDeleteNote(note.id)}
+            isDraggingCanvas={isDraggingCanvas}
+            isDrawMode={isDrawMode}
+            isMaskMode={isMaskMode}
+            isPageCanvas={isPageCanvas}
+          />
+        );
+      })}
     </div>
   );
 };
-
 interface StickyNoteProps {
   note: StickyNoteData;
   scale: number;
@@ -415,10 +473,11 @@ const StickyNote: React.FC<StickyNoteProps> = ({ note, scale, onUpdate, onDelete
     <div
       ref={noteRef}
       className={`absolute pointer-events-auto transition-shadow group
-        ${isDragging ? 'shadow-xl z-[9999] opacity-90' : isSettingsOpen ? 'z-[9998]' : isPageCanvas ? 'z-10' : 'z-[60]'}
+        ${isDragging ? 'shadow-xl opacity-90' : ''}
         ${isDraggingCanvas ? 'pointer-events-none' : ''}
       `}
       style={{
+        zIndex: isDragging ? 99999 : isSettingsOpen ? 99998 : 9999,
         left: `${localPos.x}%`,
         top: `${localPos.y}%`,
         width: `${note.width}%`,

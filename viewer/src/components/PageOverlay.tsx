@@ -23,6 +23,7 @@ interface PageOverlayProps {
   strokes: any[];
   activeStroke: { pageIdx: number, points: number[][] } | null;
   activeNoteColor: string;
+  isSpreadHalf?: 'left' | 'right';
 }
 
 const PageOverlay: React.FC<PageOverlayProps> = ({
@@ -45,7 +46,8 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
   isDrawMode,
   strokes,
   activeStroke,
-  activeNoteColor
+  activeNoteColor,
+  isSpreadHalf
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bufferCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,7 +124,13 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
   return (
     <>
       {/* Word Bounding Boxes Overlay */}
-      <div className={`absolute inset-0 w-full h-full pointer-events-none ${(isShiftDown || isCtrlDown || isRightMouseDown || isDebugMode) ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150 z-20`}>
+      <div 
+        className={`absolute inset-0 w-full h-full ${(isShiftDown || isCtrlDown || isRightMouseDown || isDebugMode) ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150 z-20 pointer-events-none`}
+        style={{
+          width: isSpreadHalf ? '200%' : '100%',
+          transform: isSpreadHalf === 'left' ? 'translateX(-50%)' : 'none'
+        }}
+      >
         {pageData.bubbles?.map((bubble: any, bIdx: number) => {
           
           // Bubble Debug Box
@@ -204,7 +212,7 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
                           {/* Word Box */}
                           {(!isCtrlDown || isDebugMode) && (
                             <div 
-                              className={`absolute pointer-events-auto cursor-pointer transition-colors
+                              className={`absolute ${isDrawMode ? 'pointer-events-none' : 'pointer-events-auto cursor-pointer'} transition-colors
                                 ${isDebugMode ? 'border-2 border-yellow-400 bg-yellow-400/20 z-30' : getWordColorClass(word)}
                               `}
                               style={{
@@ -214,7 +222,12 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
                                 height: `${relH}%`,
                               }}
                               title={word.text}
-                              onClick={(e) => handleWordClick(word, bubble.raw_text, relX, relY, relW, relH, pageIdx, { relX: bRelX, relY: bRelY, relW: bRelW, relH: bRelH }, bubble.direction, e)}
+                                onPointerDown={(e) => {
+                                  // Only trigger on left click
+                                  if (e.button === 0) {
+                                    handleWordClick(word, bubble.raw_text, relX, relY, relW, relH, pageIdx, { relX: bRelX, relY: bRelY, relW: bRelW, relH: bRelH }, bubble.direction, e);
+                                  }
+                                }}
                             ></div>
                           )}
                           
@@ -230,7 +243,7 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
                             return (
                               <div
                                 key={`c-${bIdx}-${lIdx}-${wIdx}-${cIdx}`}
-                                className={`absolute pointer-events-auto cursor-pointer transition-colors ${getWordColorClass({ base_form: char.char })}`}
+                                className={`absolute ${isDrawMode ? 'pointer-events-none' : 'pointer-events-auto cursor-pointer'} transition-colors ${getWordColorClass({ base_form: char.char })}`}
                                 style={{
                                   left: `${cRelX}%`,
                                   top: `${cRelY}%`,
@@ -238,14 +251,16 @@ const PageOverlay: React.FC<PageOverlayProps> = ({
                                   height: `${cRelH}%`,
                                 }}
                                 title={char.char}
-                                onClick={(e) => {
-                                  const charWord = {
-                                    text: char.char,
-                                    base_form: char.char,
-                                    reading: '',
-                                    part_of_speech: 'character'
-                                  };
-                                  handleWordClick(charWord, bubble.raw_text, cRelX, cRelY, cRelW, cRelH, pageIdx, { relX: bRelX, relY: bRelY, relW: bRelW, relH: bRelH }, bubble.direction, e);
+                                onPointerDown={(e) => {
+                                  if (e.button === 0) {
+                                    const charWord = {
+                                      text: char.char,
+                                      base_form: char.char,
+                                      reading: '',
+                                      part_of_speech: 'character'
+                                    };
+                                    handleWordClick(charWord, bubble.raw_text, cRelX, cRelY, cRelW, cRelH, pageIdx, { relX: bRelX, relY: bRelY, relW: bRelW, relH: bRelH }, bubble.direction, e);
+                                  }
                                 }}
                               />
                             );

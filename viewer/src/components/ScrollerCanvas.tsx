@@ -127,7 +127,7 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       // If it's a spread, we treat its width as half for the purpose of finding the minimum page width
       // This ensures that a spread is treated as "two pages" wide
       if (isSpread) {
-        const halfW = (w - spacing) / 2;
+        const halfW = w / 2;
         if (halfW < minW) minW = halfW;
       } else {
         if (w < minW) minW = w;
@@ -144,8 +144,8 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       
       let scaledH;
       if (isSpread) {
-        // A spread will take up two columns (minW * 2) plus the gap between them
-        scaledH = h * ((minW * 2 + spacing) / w);
+        // A spread will take up two columns (minW * 2)
+        scaledH = h * ((minW * 2) / w);
       } else {
         // A normal page takes up one column (minW)
         scaledH = h * (minW / w);
@@ -154,18 +154,18 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
     });
 
     // 3. Calculate the scale factor to fit the viewport
-    const availableH = viewportSize.height - spacing;
+    const availableH = viewportSize.height;
     
     // The maximum width a row can take is either two pages side-by-side (in dual mode)
     // OR a single spread (which is treated as two pages wide in both single and dual mode).
-    // Therefore, the maxRowWidth is ALWAYS (minW * 2 + spacing) if there are any spreads,
+    // Therefore, the maxRowWidth is ALWAYS (minW * 2) if there are any spreads,
     // or if we are in dual mode.
     let hasSpreads = false;
     pages.forEach(p => {
       if ((p.width || 800) > (p.height || 1200)) hasSpreads = true;
     });
     
-    const maxRowWidth = (isDual || hasSpreads) ? (minW * 2 + spacing) : minW;
+    const maxRowWidth = (isDual || hasSpreads) ? (minW * 2) : minW;
     
     const scaleH = availableH / maxH;
     const scaleW = viewportSize.width / maxRowWidth;
@@ -189,7 +189,18 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
 
       if (isSpread1) {
         // Spreads ALWAYS get their own row, regardless of single or dual mode
-        r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
+        // But in dual mode, we split them into two virtual pages so they render correctly side-by-side
+        if (isDual) {
+          r.push({ 
+            isSpread: true, 
+            pages: [
+              { ...p1, originalIndex: i, isSpreadHalf: 'right' },
+              { ...p1, originalIndex: i, isSpreadHalf: 'left' }
+            ] 
+          });
+        } else {
+          r.push({ isSpread: true, pages: [{ ...p1, originalIndex: i }] });
+        }
         i += 1;
       } else if (isDual) {
         // Normal page in column 1
@@ -201,7 +212,9 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
           
           if (!isSpread2) {
             // Two normal pages side-by-side
-            r.push({ isSpread: false, pages: [{ ...p1, originalIndex: i }, { ...p2, originalIndex: i + 1 }] });
+            // In RTL reading, the first page (p1) goes on the RIGHT, and the second page (p2) goes on the LEFT.
+            // So we push them in reverse order: [p2, p1]
+            r.push({ isSpread: false, pages: [{ ...p2, originalIndex: i + 1 }, { ...p1, originalIndex: i }] });
             i += 2;
           } else {
             // Next page is a spread, so this normal page gets its own row (with an empty slot next to it)
@@ -238,12 +251,12 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
       className="w-full h-full overflow-y-auto custom-scrollbar bg-gray-950"
       onScroll={handleScroll}
     >
-      <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: '0' }}>
+      <div className="flex flex-col items-center" style={{ gap: `${spacing}px`, padding: `${spacing / 2}px 0` }}>
         {rows.map((row, rowIdx) => (
           <div 
             key={`row-${rowIdx}`}
             className="flex justify-center items-center w-full"
-            style={{ gap: `${spacing}px` }}
+            style={{ gap: '0px' }}
           >
             {row.pages.map((page, subIdx) => {
               const pageIdx = page.originalIndex;
@@ -253,68 +266,78 @@ const ScrollerCanvas: React.FC<ScrollerCanvasProps> = ({
               const pageH = page.height || 1200;
               
               const isSpread = row.isSpread;
-              const targetW = isSpread ? (finalW * 2 + spacing) : finalW;
+              const isSpreadHalf = page.isSpreadHalf;
+              const targetW = isSpread && !isSpreadHalf ? (finalW * 2) : finalW;
               const finalH = pageH * (targetW / pageW);
 
               return (
-                <React.Fragment key={pageIdx}>
+                <React.Fragment key={`${pageIdx}-${isSpreadHalf || 'full'}`}>
                   {/* If we are in dual mode, and this is a single page on its own row (because a spread is next), we need to add a dummy spacer to keep it in the correct column */}
-                  {isDual && !isSpread && row.pages.length === 1 && subIdx === 0 && (
-                    <div style={{ width: `${finalW}px` }} className="shrink-0" />
+                  {/* In RTL reading, the single page goes on the RIGHT (column 1), so the spacer goes on the LEFT (column 2) */}
+                  {isDual && !isSpread && !isSpreadHalf && row.pages.length === 1 && subIdx === 0 && (
+                    <div style={{ width: `${finalW}px`, height: '1px' }} className="shrink-0" />
                   )}
                   
                   <div 
                     data-page-idx={pageIdx}
-                    className="scroller-page-container relative shadow-2xl ring-1 ring-gray-800 bg-gray-900"
-                    style={{ width: `${targetW}px`, height: 'auto' }}
+                    id={`scroller-page-${pageIdx}${isSpreadHalf ? '-' + isSpreadHalf : ''}`}
+                    className="scroller-page-container relative bg-gray-900 shrink-0"
+                    style={{ width: `${targetW}px`, height: 'auto', aspectRatio: `${isSpreadHalf ? pageW / 2 : pageW} / ${pageH}` }}
                   >
                   {isVisible ? (
                     <>
-                      <VirtualPage 
-                        pageIdx={pageIdx}
-                        imageName={page.image}
-                        width={targetW}
-                        height={pageH}
-                        isInverted={isInverted}
-                      />
-                      <PageOverlay
-                        pageData={page}
-                        pageIdx={pageIdx}
-                        imgW={pageW}
-                        imgH={pageH}
-                        scale={targetW / pageW}
-                        isDebugMode={isDebugMode}
-                        isCtrlDown={isCtrlDown}
-                        isShiftDown={isShiftDown}
-                        isRightMouseDown={isRightMouseDown}
-                        wordStatuses={wordStatuses}
-                        activePopups={activePopups}
-                        handleWordClick={handleWordClick}
-                        handleClosePopup={handleClosePopup}
-                        bringPopupToFront={bringPopupToFront}
-                        getWordColorClass={getWordColorClass}
-                        mangaId={mangaId}
-                        isDrawMode={isDrawMode}
-                        strokes={strokes}
-                        activeStroke={activeStroke}
-                        activeNoteColor={activeNoteColor}
-                      />
-                      <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute inset-0 z-0">
+                        <VirtualPage 
+                          pageIdx={pageIdx}
+                          imageName={page.image}
+                          width={targetW}
+                          height={pageH}
+                          isInverted={isInverted}
+                          isSpreadHalf={isSpreadHalf}
+                        />
+                      </div>
+                      <div className="absolute inset-0 z-10 pointer-events-none">
+                        <PageOverlay
+                          pageData={page}
+                          pageIdx={pageIdx}
+                          imgW={pageW}
+                          imgH={pageH}
+                          scale={targetW / (isSpreadHalf ? pageW / 2 : pageW)}
+                          isDebugMode={isDebugMode}
+                          isCtrlDown={isCtrlDown}
+                          isShiftDown={isShiftDown}
+                          isRightMouseDown={isRightMouseDown}
+                          wordStatuses={wordStatuses}
+                          activePopups={activePopups}
+                          handleWordClick={handleWordClick}
+                          handleClosePopup={handleClosePopup}
+                          bringPopupToFront={bringPopupToFront}
+                          getWordColorClass={getWordColorClass}
+                          mangaId={mangaId}
+                          isDrawMode={isDrawMode}
+                          strokes={strokes}
+                          activeStroke={activeStroke}
+                          activeNoteColor={activeNoteColor}
+                        />
+                      </div>
+                      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9999, overflow: 'visible' }}>
+                        {console.log("ScrollerCanvas rendering StickyNoteOverlay for page:", pageIdx, "isSpreadHalf:", isSpreadHalf, "notes:", stickyNotes.filter(n => n.page_idx === pageIdx))}
                         <StickyNoteOverlay
                           notes={stickyNotes}
                           pageIdx={pageIdx}
-                          scale={targetW / pageW}
+                          scale={targetW / (isSpreadHalf ? pageW / 2 : pageW)}
                           onUpdateNote={onUpdateNote}
                           onDeleteNote={onDeleteNote}
                           isDraggingCanvas={false}
                           isDrawMode={isDrawMode || isMaskMode}
+                          isSpreadHalf={isSpreadHalf}
                         />
                       </div>
                     </>
                   ) : (
                     <div 
                       className="flex items-center justify-center text-gray-700 bg-gray-900"
-                      style={{ width: `${targetW}px`, height: 'auto', aspectRatio: `${pageW} / ${pageH}` }}
+                      style={{ width: `${targetW}px`, height: 'auto', aspectRatio: `${isSpreadHalf ? pageW / 2 : pageW} / ${pageH}` }}
                     >
                       Loading Page {pageIdx + 1}...
                     </div>

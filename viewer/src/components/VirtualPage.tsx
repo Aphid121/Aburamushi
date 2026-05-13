@@ -8,9 +8,10 @@ interface VirtualPageProps {
   height: number;
   isInverted: boolean;
   onImageLoad?: (imgElement: HTMLImageElement) => void;
+  isSpreadHalf?: 'left' | 'right';
 }
 
-const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, height, isInverted, onImageLoad }) => {
+const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, height, isInverted, onImageLoad, isSpreadHalf }) => {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -26,7 +27,7 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
           setIsVisible(false);
         }
       },
-      { rootMargin: '2000px' } // Load images when they are within 2000px of the viewport
+      { rootMargin: '3000px' } // Load images when they are within 3000px of the viewport
     );
 
     if (containerRef.current) {
@@ -90,7 +91,7 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
     <div 
       ref={containerRef}
       className="relative bg-gray-900 shrink-0"
-      style={url ? undefined : { width: `${width}px`, height: 'auto', aspectRatio: `${width} / ${height}` }}
+      style={{ width: `${width}px`, height: 'auto', aspectRatio: `${isSpreadHalf ? width * 2 : width} / ${height}` }}
     >
       {error ? (
         <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm">Error</div>
@@ -99,19 +100,34 @@ const VirtualPage: React.FC<VirtualPageProps> = ({ pageIdx, imageName, width, he
           <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
         </div>
       ) : (
-        <img 
-          id={`manga-img-${pageIdx}`}
-          ref={imgRef}
-          src={url} 
-          alt={`Page ${pageIdx + 1}`} 
-          className={`block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
-          style={{ 
-            imageRendering: 'pixelated',
-            width: `${width}px`,
-            height: 'auto',
-          }}
-          draggable={false}
-        />
+        <div style={{ 
+          width: `${width}px`, 
+          height: 'auto', 
+          overflow: 'hidden',
+          position: 'relative',
+          margin: '0',
+          padding: '0',
+          display: 'flex'
+        }}>
+          <img 
+            id={`manga-img-${pageIdx}${isSpreadHalf ? '-' + isSpreadHalf : ''}`}
+            ref={imgRef}
+            src={url} 
+            alt={`Page ${pageIdx + 1}`} 
+            className={`block transition-[filter] duration-300 ${isInverted ? 'invert hue-rotate-180' : ''}`}
+            style={{ 
+              imageRendering: 'pixelated',
+              width: isSpreadHalf ? `${width * 2}px` : `${width}px`,
+              maxWidth: 'none',
+              height: 'auto',
+              transform: isSpreadHalf === 'left' ? `translateX(-${width}px)` : 'none',
+              margin: '0',
+              padding: '0',
+              display: 'block'
+            }}
+            draggable={false}
+          />
+        </div>
       )}
     </div>
   );
